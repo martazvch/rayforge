@@ -1,0 +1,471 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
+
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
+
+// Implementation of the GLSL radians() function
+template<typename T>
+inline T radians(T d)
+{
+    return d * T(0.01745329251);
+}
+
+struct SDFObject
+{
+    float3 position;
+    uint sdf_type;
+    float4 params;
+    float3 color;
+    uint operation;
+    float smooth_factor;
+    spvUnsafeArray<float, 3> _pad;
+};
+
+struct SceneInfo
+{
+    float dist;
+    int material;
+};
+
+struct SDFObject_1
+{
+    packed_float3 position;
+    uint sdf_type;
+    float4 params;
+    packed_float3 color;
+    uint operation;
+    float smooth_factor;
+    float _pad[3];
+};
+
+struct SceneBlock
+{
+    uint object_count;
+    uint _pad2[3];
+    SDFObject_1 objects[1];
+};
+
+struct CameraBlock
+{
+    float2 resolution;
+    float2 _pad;
+    packed_float3 cam_pos;
+    float fov;
+    float3x3 cam_rot;
+};
+
+struct main0_out
+{
+    float4 outColor [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 fragTexCoord [[user(locn0)]];
+};
+
+static inline __attribute__((always_inline))
+float sdSphere(thread const float3& p, thread const float& r)
+{
+    return length(p) - r;
+}
+
+static inline __attribute__((always_inline))
+float sdBox(thread const float3& p, thread const float3& b)
+{
+    float3 q = abs(p) - b;
+    return length(fast::max(q, float3(0.0))) + fast::min(fast::max(q.x, fast::max(q.y, q.z)), 0.0);
+}
+
+static inline __attribute__((always_inline))
+float sdTorus(thread const float3& p, thread const float2& t)
+{
+    float2 q = float2(length(p.xz) - t.x, p.y);
+    return length(q) - t.y;
+}
+
+static inline __attribute__((always_inline))
+float sdCylinder(thread const float3& p, thread const float2& h)
+{
+    float2 d = abs(float2(length(p.xz), p.y)) - h;
+    return fast::min(fast::max(d.x, d.y), 0.0) + length(fast::max(d, float2(0.0)));
+}
+
+static inline __attribute__((always_inline))
+float evaluateSDF(thread const SDFObject& obj, thread const float3& p)
+{
+    float3 local_p = p - obj.position;
+    if (obj.sdf_type == 0u)
+    {
+        float3 param = local_p;
+        float param_1 = obj.params.x;
+        return sdSphere(param, param_1);
+    }
+    else
+    {
+        if (obj.sdf_type == 1u)
+        {
+            float3 param_2 = local_p;
+            float3 param_3 = obj.params.xyz;
+            return sdBox(param_2, param_3);
+        }
+        else
+        {
+            if (obj.sdf_type == 2u)
+            {
+                float3 param_4 = local_p;
+                float2 param_5 = obj.params.xy;
+                return sdTorus(param_4, param_5);
+            }
+            else
+            {
+                if (obj.sdf_type == 3u)
+                {
+                    float3 param_6 = local_p;
+                    float2 param_7 = obj.params.xy;
+                    return sdCylinder(param_6, param_7);
+                }
+            }
+        }
+    }
+    return 1000.0;
+}
+
+static inline __attribute__((always_inline))
+float smoothUnion(thread const float& d1, thread const float& d2, thread const float& k)
+{
+    float h = fast::clamp(0.5 + ((0.5 * (d2 - d1)) / k), 0.0, 1.0);
+    return mix(d2, d1, h) - ((k * h) * (1.0 - h));
+}
+
+static inline __attribute__((always_inline))
+float smoothSubtraction(thread const float& d1, thread const float& d2, thread const float& k)
+{
+    float h = fast::clamp(0.5 - ((0.5 * (d2 + d1)) / k), 0.0, 1.0);
+    return mix(d2, -d1, h) + ((k * h) * (1.0 - h));
+}
+
+static inline __attribute__((always_inline))
+float smoothIntersection(thread const float& d1, thread const float& d2, thread const float& k)
+{
+    float h = fast::clamp(0.5 - ((0.5 * (d2 - d1)) / k), 0.0, 1.0);
+    return mix(d2, d1, h) + ((k * h) * (1.0 - h));
+}
+
+static inline __attribute__((always_inline))
+float applyOperation(thread const float& d1, thread const float& d2, thread const uint& op, thread const float& k)
+{
+    if (op == 1u)
+    {
+        return fast::min(d1, d2);
+    }
+    else
+    {
+        if (op == 2u)
+        {
+            return fast::max(-d1, d2);
+        }
+        else
+        {
+            if (op == 3u)
+            {
+                return fast::max(d1, d2);
+            }
+            else
+            {
+                if (op == 4u)
+                {
+                    float param = d1;
+                    float param_1 = d2;
+                    float param_2 = k;
+                    return smoothUnion(param, param_1, param_2);
+                }
+                else
+                {
+                    if (op == 5u)
+                    {
+                        float param_3 = d1;
+                        float param_4 = d2;
+                        float param_5 = k;
+                        return smoothSubtraction(param_3, param_4, param_5);
+                    }
+                    else
+                    {
+                        if (op == 6u)
+                        {
+                            float param_6 = d1;
+                            float param_7 = d2;
+                            float param_8 = k;
+                            return smoothIntersection(param_6, param_7, param_8);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return d2;
+}
+
+static inline __attribute__((always_inline))
+SceneInfo getDist(thread const float3& p, const device SceneBlock& _392)
+{
+    float result_dist = p.y + 0.00999999977648258209228515625;
+    int result_mat = 0;
+    SDFObject obj;
+    for (uint i = 0u; (i < _392.object_count) && (i < 128u); i++)
+    {
+        obj.position = float3(_392.objects[i].position);
+        obj.sdf_type = _392.objects[i].sdf_type;
+        obj.params = _392.objects[i].params;
+        obj.color = float3(_392.objects[i].color);
+        obj.operation = _392.objects[i].operation;
+        obj.smooth_factor = _392.objects[i].smooth_factor;
+        obj._pad[0] = _392.objects[i]._pad[0];
+        obj._pad[1] = _392.objects[i]._pad[1];
+        obj._pad[2] = _392.objects[i]._pad[2];
+        SDFObject param = obj;
+        float3 param_1 = p;
+        float obj_dist = evaluateSDF(param, param_1);
+        bool _467 = i == 0u;
+        bool _473;
+        if (_467)
+        {
+            _473 = obj.operation == 0u;
+        }
+        else
+        {
+            _473 = _467;
+        }
+        if (_473)
+        {
+            result_dist = obj_dist;
+            result_mat = int(i + 1u);
+        }
+        else
+        {
+            float prev_dist = result_dist;
+            float param_2 = obj_dist;
+            float param_3 = result_dist;
+            uint param_4 = obj.operation;
+            float param_5 = obj.smooth_factor;
+            result_dist = applyOperation(param_2, param_3, param_4, param_5);
+            bool _496 = result_dist == obj_dist;
+            bool _507;
+            if (!_496)
+            {
+                _507 = (obj.operation == 4u) && (obj_dist < prev_dist);
+            }
+            else
+            {
+                _507 = _496;
+            }
+            if (_507)
+            {
+                result_mat = int(i + 1u);
+            }
+        }
+    }
+    return SceneInfo{ result_dist, result_mat };
+}
+
+static inline __attribute__((always_inline))
+SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, const device SceneBlock& _392)
+{
+    float dO = 0.0;
+    int material = 0;
+    for (int i = 0; i < 100; i++)
+    {
+        float3 p = ro + (rd * dO);
+        float3 param = p;
+        SceneInfo info = getDist(param, _392);
+        dO += info.dist;
+        material = info.material;
+        bool _588 = dO > 100.0;
+        bool _596;
+        if (!_588)
+        {
+            _596 = abs(info.dist) < 0.001000000047497451305389404296875;
+        }
+        else
+        {
+            _596 = _588;
+        }
+        if (_596)
+        {
+            break;
+        }
+    }
+    return SceneInfo{ dO, material };
+}
+
+static inline __attribute__((always_inline))
+float3 getNormal(thread const float3& p, const device SceneBlock& _392)
+{
+    float2 e = float2(0.001000000047497451305389404296875, 0.0);
+    float3 param = p;
+    float d = getDist(param, _392).dist;
+    float3 param_1 = p - e.xyy;
+    float3 param_2 = p - e.yxy;
+    float3 param_3 = p - e.yyx;
+    float3 n = float3(d) - float3(getDist(param_1, _392).dist, getDist(param_2, _392).dist, getDist(param_3, _392).dist);
+    return fast::normalize(n);
+}
+
+static inline __attribute__((always_inline))
+float getLight(thread const float3& p, const device SceneBlock& _392)
+{
+    float3 lightPos = float3(5.0, 5.0, -5.0);
+    float3 l = fast::normalize(lightPos - p);
+    float3 param = p;
+    float3 n = getNormal(param, _392);
+    float dif = fast::clamp(dot(n, l), 0.0, 1.0);
+    float3 param_1 = p + ((n * 0.001000000047497451305389404296875) * 2.0);
+    float3 param_2 = l;
+    SceneInfo shadowInfo = rayMarch(param_1, param_2, _392);
+    if (shadowInfo.dist < length(lightPos - p))
+    {
+        dif *= 0.300000011920928955078125;
+    }
+    return dif;
+}
+
+static inline __attribute__((always_inline))
+float3 getGridColorAA(thread const float3& p)
+{
+    float2 coord = p.xz;
+    float2 dx = dfdx(coord);
+    float2 dy = dfdy(coord);
+    float2 derivative = abs(float2(length(float2(dx.x, dy.x)), length(float2(dx.y, dy.y))));
+    float2 grid = abs(fract(coord - float2(0.5)) - float2(0.5)) / (derivative * 2.0);
+    float line = fast::min(grid.x, grid.y);
+    float3 bg = float3(0.1500000059604644775390625, 0.1500000059604644775390625, 0.180000007152557373046875);
+    float3 grid_col = float3(0.300000011920928955078125, 0.300000011920928955078125, 0.3499999940395355224609375);
+    float grid_smooth = 1.0 - fast::min(line, 1.0);
+    float3 color = mix(bg, grid_col, float3(grid_smooth));
+    if (abs(p.z) < 0.02500000037252902984619140625)
+    {
+        color = float3(0.800000011920928955078125, 0.20000000298023223876953125, 0.20000000298023223876953125);
+    }
+    if (abs(p.x) < 0.02500000037252902984619140625)
+    {
+        color = float3(0.20000000298023223876953125, 0.4000000059604644775390625, 0.800000011920928955078125);
+    }
+    return color;
+}
+
+static inline __attribute__((always_inline))
+float3 getObjectColor(thread const int& material, const device SceneBlock& _392)
+{
+    if (material == 0)
+    {
+        return float3(0.0);
+    }
+    int obj_index = material - 1;
+    bool _382 = obj_index >= 0;
+    bool _398;
+    if (_382)
+    {
+        _398 = obj_index < int(_392.object_count);
+    }
+    else
+    {
+        _398 = _382;
+    }
+    if (_398)
+    {
+        return float3(_392.objects[obj_index].color);
+    }
+    return float3(0.699999988079071044921875);
+}
+
+fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _746 [[buffer(0)]], const device SceneBlock& _392 [[buffer(1)]])
+{
+    main0_out out = {};
+    float2 uv = (in.fragTexCoord * 2.0) - float2(1.0);
+    uv.x *= 1.33333337306976318359375;
+    float fov_factor = tan(radians(_746.fov * 0.5));
+    uv *= fov_factor;
+    float3 rd_local = float3(uv.x, uv.y, 1.0);
+    float3 rd = fast::normalize(_746.cam_rot * rd_local);
+    float3 ro = float3(_746.cam_pos);
+    float3 param = ro;
+    float3 param_1 = rd;
+    SceneInfo info = rayMarch(param, param_1, _392);
+    float3 col = float3(0.0);
+    if (info.dist < 100.0)
+    {
+        float3 p = ro + (rd * info.dist);
+        float3 param_2 = p;
+        float light = getLight(param_2, _392);
+        float3 baseColor;
+        if (info.material == 0)
+        {
+            float3 param_3 = p;
+            baseColor = getGridColorAA(param_3);
+        }
+        else
+        {
+            int param_4 = info.material;
+            baseColor = getObjectColor(param_4, _392);
+        }
+        if (info.material == 0)
+        {
+            col = baseColor * (0.699999988079071044921875 + (0.300000011920928955078125 * light));
+        }
+        else
+        {
+            col = baseColor * light;
+            col += (baseColor * 0.100000001490116119384765625);
+        }
+        col += float3(0.02999999932944774627685546875, 0.02999999932944774627685546875, 0.0500000007450580596923828125);
+    }
+    else
+    {
+        col = mix(float3(0.5, 0.699999988079071044921875, 1.0), float3(0.20000000298023223876953125, 0.300000011920928955078125, 0.5), float3((uv.y * 0.5) + 0.5));
+    }
+    col = powr(col, float3(0.4544999897480010986328125));
+    out.outColor = float4(col, 1.0);
+    return out;
+}
+

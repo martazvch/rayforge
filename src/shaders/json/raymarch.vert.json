@@ -1,0 +1,1 @@
+{ "samplers": 0, "storage_textures": 0, "storage_buffers": 0, "uniform_buffers": 0, "inputs": [{ "name": "inTexCoord", "type": "float2", "location": 1 }, { "name": "inPosition", "type": "float2", "location": 0 }], "outputs": [{ "name": "fragTexCoord", "type": "float2", "location": 0 }] }

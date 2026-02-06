@@ -1,0 +1,9 @@
+.DS_Store
+.zig-cache
+zig-out
+.git
+imgui.ini
+.claude
+EDITOR_IMPLEMENTATION.zig
+CLAUDE.md
+

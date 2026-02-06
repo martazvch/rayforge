@@ -1,0 +1,25 @@
+.{
+    .name = .ray_forge,
+    .version = "0.0.0",
+    .fingerprint = 0x9513c133191bb3c2,
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git#887fa805e40d5c7bb3955ae69b89ed566c6a0471",
+            .hash = "sdl-0.4.0+3.4.0-SDL--rq2owEZsySGuHCuVJ9naEvH3i3e_pyUIjziBtJ-",
+        },
+        .zlm = .{
+            .url = "git+https://github.com/ziglibs/zlm.git#35ab7df57cfb5392a11486f6e4b03a82f849a118",
+            .hash = "zlm-0.1.0-LoZ6yDawAADMopilIe9MDzer0UqmruCy_PuhNv4OMc7c",
+        },
+        .zimgui = .{
+            .url = "git+https://github.com/martazvch/zimgui#35db8d91abba404e4a42bc6254684185af6e5879",
+            .hash = "zimgui-0.0.0-AmMy4eXkUgAWtF4IJpvhoHoPAvSu72TGs5CZlpUBFgE3",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
