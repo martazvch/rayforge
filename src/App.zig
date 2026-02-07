@@ -12,6 +12,7 @@ pipeline: Pipeline,
 event_loop: EventLoop,
 scene: Scene,
 editor: Editor,
+camera: Camera,
 state: State,
 
 const State = struct {
@@ -27,6 +28,7 @@ pub fn init(allocator: Allocator) Self {
         .scene = .init(),
         .event_loop = .init(),
         .editor = undefined,
+        .camera = .init(),
         .state = .{},
     };
 }
@@ -36,13 +38,11 @@ pub fn deinit(self: *Self) void {
     self.pipeline.deinit();
 }
 
-pub fn initEditor(self: *Self) void {
+/// Binds several part of the software together
+pub fn bind(self: *Self) void {
     self.editor = .init(self.pipeline.device, self.pipeline.window);
     self.scene.debug();
-}
-
-pub fn bindCurrentCamera(self: *Self) void {
-    self.event_loop.bindCamera(&self.scene.camera);
+    self.event_loop.bind(&self.scene, &self.camera, &self.editor.viewport);
 }
 
 pub fn frame(self: *Self) !sdl.SDL_AppResult {
@@ -50,5 +50,5 @@ pub fn frame(self: *Self) !sdl.SDL_AppResult {
     self.state.delta_time = time - self.state.last_frame;
     self.state.last_frame = time;
 
-    return self.pipeline.frame(&self.scene, &self.editor);
+    return self.pipeline.frame(&self.scene, &self.camera, &self.editor, &self.event_loop);
 }

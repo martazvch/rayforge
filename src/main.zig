@@ -24,8 +24,7 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl.SDL_AppResult {
 
     // TODO: mamange allocation
     app = .init(std.heap.smp_allocator);
-    app.initEditor();
-    app.bindCurrentCamera();
+    app.bind();
 
     return sdl.SDL_APP_CONTINUE;
 }

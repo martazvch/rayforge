@@ -1,23 +1,39 @@
+const std = @import("std");
 const c = @import("c");
 const sdl = c.sdl;
+const m = @import("math.zig").math;
 const Camera = @import("Camera.zig");
+const Scene = @import("Scene.zig");
+const Viewport = @import("editor/Viewport.zig");
 
+scene: *Scene,
 camera: *Camera,
-mouse_wheel_pressed: bool,
+viewport: *const Viewport,
 shift_pressed: bool,
+enable_cam: bool,
+viewport_hovered: bool,
 
 const Self = @This();
 
 pub fn init() Self {
     return .{
+        .scene = undefined,
         .camera = undefined,
-        .mouse_wheel_pressed = false,
         .shift_pressed = false,
+        .enable_cam = false,
+        .viewport_hovered = false,
+        .viewport = undefined,
     };
 }
 
-pub fn bindCamera(self: *Self, camera: *Camera) void {
+pub fn bind(self: *Self, scene: *Scene, camera: *Camera, viewport: *const Viewport) void {
+    self.scene = scene;
     self.camera = camera;
+    self.viewport = viewport;
+}
+
+pub fn setViewportState(self: *Self, hovered: bool) void {
+    self.viewport_hovered = hovered;
 }
 
 pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.SDL_AppResult {
@@ -32,16 +48,32 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
             return sdl.SDL_APP_SUCCESS;
         },
         sdl.SDL_EVENT_MOUSE_WHEEL => {
-            self.camera.offsetFov(event.wheel.y);
+            self.camera.zoom(event.wheel.y);
+
+            // Free camera
+            // self.camera.offsetFov(event.wheel.y);
         },
         sdl.SDL_EVENT_MOUSE_BUTTON_UP => {
             if (event.button.button == sdl.SDL_BUTTON_MIDDLE) {
-                self.mouse_wheel_pressed = false;
+                self.enable_cam = false;
             }
         },
         sdl.SDL_EVENT_MOUSE_BUTTON_DOWN => {
-            if (event.button.button == sdl.SDL_BUTTON_MIDDLE) {
-                self.mouse_wheel_pressed = true;
+            if (event.button.button == sdl.SDL_BUTTON_MIDDLE and self.viewport_hovered) {
+                self.enable_cam = true;
+            } else if (event.button.button == sdl.SDL_BUTTON_LEFT and self.viewport_hovered) {
+                const x = event.motion.x - self.viewport.rect.pos.x;
+                const y = event.motion.y - self.viewport.rect.pos.y;
+
+                const ray = self.camera.screenToRay(x, y, self.viewport.rect.size);
+
+                if (self.scene.raymarch(ray.ro, ray.rd)) |hit| {
+                    self.scene.obj_selected = hit;
+                    self.camera.pivot = self.scene.data.objects[hit].position;
+                    self.camera.orbit();
+                } else {
+                    self.scene.obj_selected = null;
+                }
             }
         },
         sdl.SDL_EVENT_KEY_UP => {
@@ -59,15 +91,18 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
             }
         },
         sdl.SDL_EVENT_MOUSE_MOTION => {
-            if (self.mouse_wheel_pressed) {
+            if (self.enable_cam) {
                 const x = event.motion.xrel * 0.1;
-                const y = -event.motion.yrel * 0.1;
+                const y = event.motion.yrel * 0.1;
 
                 if (self.shift_pressed) {
-                    self.camera.moveForward(y * 0.1);
-                    self.camera.moveRight(x * 0.1);
+                    self.camera.pan(x, y);
+
+                    // Free camera
+                    // self.camera.moveForward(y * 0.1);
+                    // self.camera.moveRight(x * 0.1);
                 } else {
-                    self.camera.offsetYawPitch(x, y);
+                    self.camera.rotate(x, y);
                 }
             }
         },

@@ -6,10 +6,20 @@ pub fn applyTheme() void {
     const colors = &style.Colors;
 
     // Palette
-    const bg_very_dark = gui.ImVec4{ .x = 0.09, .y = 0.09, .z = 0.11, .w = 1.00 }; // #17171c
-    const bg_dark = gui.ImVec4{ .x = 0.12, .y = 0.12, .z = 0.14, .w = 1.00 }; // #1e1e24
-    const bg_medium = gui.ImVec4{ .x = 0.15, .y = 0.15, .z = 0.18, .w = 1.00 }; // #26262e
-    const bg_light = gui.ImVec4{ .x = 0.18, .y = 0.18, .z = 0.22, .w = 1.00 }; // #2e2e38
+    // const d40 = 40.0 / 255.0;
+    // const d53 = 53.0 / 255.0;
+    // const d63 = 63.0 / 255.0;
+    // const d80 = 80.0 / 255.0;
+
+    const bg_very_dark = gui.ImVec4{ .x = 0.12, .y = 0.12, .z = 0.14, .w = 1.00 }; // Menu bar (keep dark)
+    // const bg_very_dark = gui.ImVec4{ .x = d40, .y = d40, .z = d40, .w = 1.00 }; // Menu bar (keep dark)
+    const bg_dark = gui.ImVec4{ .x = 0.18, .y = 0.18, .z = 0.21, .w = 1.00 }; // Window backgrounds
+    // const bg_dark = gui.ImVec4{ .x = d53, .y = d53, .z = d53, .w = 1.00 }; // Window backgrounds
+    const bg_medium = gui.ImVec4{ .x = 0.22, .y = 0.22, .z = 0.26, .w = 1.00 }; // Frames, children
+    // const bg_medium = gui.ImVec4{ .x = d63, .y = d63, .z = d63, .w = 1.00 }; // Frames, children
+    const bg_light = gui.ImVec4{ .x = 0.26, .y = 0.26, .z = 0.31, .w = 1.00 }; // Buttons, headers
+    // const bg_light = gui.ImVec4{ .x = d80, .y = d80, .z = d80, .w = 1.00 }; // Buttons, headers
+
     const border = gui.ImVec4{ .x = 0.25, .y = 0.25, .z = 0.30, .w = 1.00 }; // #40404d
     const text = gui.ImVec4{ .x = 0.85, .y = 0.85, .z = 0.88, .w = 1.00 }; // #d9d9e0
     const text_dim = gui.ImVec4{ .x = 0.55, .y = 0.55, .z = 0.60, .w = 1.00 }; // #8c8c99
@@ -29,8 +39,8 @@ pub fn applyTheme() void {
     style.GrabMinSize = 10.0;
 
     // Borders
-    style.WindowBorderSize = 1.0;
-    style.ChildBorderSize = 1.0;
+    style.WindowBorderSize = 0.0;
+    style.ChildBorderSize = 0.0;
     style.PopupBorderSize = 1.0;
     style.FrameBorderSize = 0.0;
     style.TabBorderSize = 0.0;
@@ -68,10 +78,10 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_FrameBg] = bg_medium;
     colors[gui.ImGuiCol_FrameBgHovered] = bg_light;
     colors[gui.ImGuiCol_FrameBgActive] = gui.ImVec4{ .x = 0.20, .y = 0.20, .z = 0.25, .w = 1.00 };
-    colors[gui.ImGuiCol_TitleBg] = bg_very_dark;
+    colors[gui.ImGuiCol_TitleBg] = bg_dark;
     colors[gui.ImGuiCol_TitleBgActive] = bg_dark;
-    colors[gui.ImGuiCol_TitleBgCollapsed] = bg_very_dark;
-    colors[gui.ImGuiCol_MenuBarBg] = bg_dark;
+    colors[gui.ImGuiCol_TitleBgCollapsed] = bg_medium;
+    colors[gui.ImGuiCol_MenuBarBg] = bg_very_dark;
     colors[gui.ImGuiCol_ScrollbarBg] = bg_dark;
     colors[gui.ImGuiCol_ScrollbarGrab] = bg_light;
     colors[gui.ImGuiCol_ScrollbarGrabHovered] = gui.ImVec4{ .x = 0.25, .y = 0.25, .z = 0.30, .w = 1.00 };
@@ -113,15 +123,4 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_NavWindowingHighlight] = accent_purple;
     colors[gui.ImGuiCol_NavWindowingDimBg] = gui.ImVec4{ .x = 0.20, .y = 0.20, .z = 0.20, .w = 0.50 };
     colors[gui.ImGuiCol_ModalWindowDimBg] = gui.ImVec4{ .x = 0.10, .y = 0.10, .z = 0.10, .w = 0.60 };
-}
-
-pub fn applyObsidianThemeLight() void {
-    applyTheme();
-
-    const style = gui.igGetStyle();
-    const colors = &style.Colors;
-
-    colors[gui.ImGuiCol_WindowBg] = gui.ImVec4{ .x = 0.14, .y = 0.14, .z = 0.16, .w = 1.00 };
-    colors[gui.ImGuiCol_ChildBg] = gui.ImVec4{ .x = 0.17, .y = 0.17, .z = 0.20, .w = 1.00 };
-    colors[gui.ImGuiCol_FrameBg] = gui.ImVec4{ .x = 0.20, .y = 0.20, .z = 0.24, .w = 1.00 };
 }
