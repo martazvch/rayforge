@@ -7,18 +7,13 @@ const Scene = @import("Scene.zig");
 const EventLoop = @import("EventLoop.zig");
 const Pipeline = @import("Pipeline.zig");
 const Editor = @import("editor/Editor.zig");
+const icons = @import("icons.zig");
 
 pipeline: Pipeline,
 event_loop: EventLoop,
 scene: Scene,
 editor: Editor,
 camera: Camera,
-state: State,
-
-const State = struct {
-    delta_time: f32 = 0,
-    last_frame: f32 = 0,
-};
 
 const Self = @This();
 
@@ -29,7 +24,6 @@ pub fn init(allocator: Allocator) Self {
         .event_loop = .init(),
         .editor = undefined,
         .camera = .init(),
-        .state = .{},
     };
 }
 
@@ -43,12 +37,10 @@ pub fn bind(self: *Self) void {
     self.editor = .init(self.pipeline.device, self.pipeline.window);
     self.scene.debug();
     self.event_loop.bind(&self.scene, &self.camera, &self.editor.viewport);
+
+    icons.init(self.pipeline.device);
 }
 
 pub fn frame(self: *Self) !sdl.SDL_AppResult {
-    const time = @as(f32, @floatFromInt(sdl.SDL_GetTicksNS())) / 1e9;
-    self.state.delta_time = time - self.state.last_frame;
-    self.state.last_frame = time;
-
     return self.pipeline.frame(&self.scene, &self.camera, &self.editor, &self.event_loop);
 }

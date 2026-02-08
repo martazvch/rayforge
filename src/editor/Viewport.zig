@@ -23,7 +23,7 @@ pub fn setRect(self: *Self, rect: Rect) void {
 pub fn render(self: *Self, pipeline: *Pipeline, event_loop: *EventLoop) void {
     const draw_list = gui.ImGui_GetBackgroundDrawList();
     const texture_ref: gui.ImTextureRef = .{
-        ._TexData = null,
+        ._TexData = null, // not used for user-defined texures
         ._TexID = @intFromPtr(pipeline.viewport_texture.texture),
     };
     gui.ImDrawList_AddImage(

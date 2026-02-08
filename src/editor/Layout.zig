@@ -3,7 +3,8 @@ const c = @import("c");
 const gui = c.gui;
 const Rect = @import("../Rect.zig");
 const Scene = @import("../Scene.zig");
-const SceneTree = @import("SceneTree.zig");
+const SceneTree = @import("scene_tree.zig");
+const Properties = @import("properties.zig");
 const Viewport = @import("Viewport.zig");
 
 const TOOLBAR_HEIGHT: f32 = 28;
@@ -28,7 +29,7 @@ var dragging_viewport_splitter: bool = false;
 var dragging_panel_splitter: bool = false;
 var dragging_horizontal_splitter: bool = false;
 
-pub fn render(scene: *const Scene, viewport: *Viewport) void {
+pub fn render(scene: *Scene, viewport: *Viewport) void {
     const vp = gui.ImGui_GetMainViewport();
     const work_pos = vp.*.WorkPos;
     const work_size = vp.*.WorkSize;
@@ -91,7 +92,6 @@ pub fn render(scene: *const Scene, viewport: *Viewport) void {
         gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_WindowPadding, .{ .x = 4, .y = 4 });
         gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_ItemSpacing, .{ .x = 2, .y = 0 });
         // Transparent button background
-        gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Button, .{ .x = 0, .y = 0, .z = 0, .w = 0 });
         if (gui.ImGui_Begin("##Toolbar", null, toolbar_flags)) {
             // Zoom buttons
             if (gui.ImGui_Button("+")) {}
@@ -108,7 +108,6 @@ pub fn render(scene: *const Scene, viewport: *Viewport) void {
             }
         }
         gui.ImGui_End();
-        gui.ImGui_PopStyleColor();
         gui.ImGui_PopStyleVarEx(2);
     }
 
@@ -158,8 +157,7 @@ pub fn render(scene: *const Scene, viewport: *Viewport) void {
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = properties_width, .y = panel_height }, gui.ImGuiCond_Always);
     // gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_WindowPadding, .{ .x = 8, .y = 8 });
-    if (gui.ImGui_Begin("Properties", null, panel_flags)) {}
-    gui.ImGui_End();
+    Properties.render(scene, panel_flags);
     // gui.ImGui_PopStyleVar();
 
     // Scene panel
@@ -192,6 +190,9 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     const mouse_down = gui.ImGui_IsMouseDown(gui.ImGuiMouseButton_Left);
     const draw_list = gui.ImGui_GetForegroundDrawList();
 
+    // Don't start a new splitter drag if an ImGui widget is already active (e.g. DragFloat)
+    const imgui_active = gui.ImGui_IsAnyItemActive();
+
     // Draw borders between panels
     // Border: Viewport | Properties
     gui.ImDrawList_AddLine(
@@ -223,7 +224,7 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     const vp_hovered = mouse_pos.x >= vp_splitter_min.x and mouse_pos.x <= vp_splitter_max.x and
         mouse_pos.y >= vp_splitter_min.y and mouse_pos.y <= vp_splitter_max.y;
 
-    if (vp_hovered and mouse_down and !dragging_panel_splitter and !dragging_horizontal_splitter) {
+    if (vp_hovered and mouse_down and !imgui_active and !dragging_panel_splitter and !dragging_horizontal_splitter) {
         dragging_viewport_splitter = true;
     }
     if (!mouse_down) dragging_viewport_splitter = false;
@@ -248,7 +249,7 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     const ps_hovered = mouse_pos.x >= ps_splitter_min.x and mouse_pos.x <= ps_splitter_max.x and
         mouse_pos.y >= ps_splitter_min.y and mouse_pos.y <= ps_splitter_max.y;
 
-    if (ps_hovered and mouse_down and !dragging_viewport_splitter and !dragging_horizontal_splitter) {
+    if (ps_hovered and mouse_down and !imgui_active and !dragging_viewport_splitter and !dragging_horizontal_splitter) {
         dragging_panel_splitter = true;
     }
     if (!mouse_down) dragging_panel_splitter = false;
@@ -272,7 +273,7 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     const h_hovered = mouse_pos.x >= h_splitter_min.x and mouse_pos.x <= h_splitter_max.x and
         mouse_pos.y >= h_splitter_min.y and mouse_pos.y <= h_splitter_max.y;
 
-    if (h_hovered and mouse_down and !dragging_viewport_splitter and !dragging_panel_splitter) {
+    if (h_hovered and mouse_down and !imgui_active and !dragging_viewport_splitter and !dragging_panel_splitter) {
         dragging_horizontal_splitter = true;
     }
     if (!mouse_down) dragging_horizontal_splitter = false;

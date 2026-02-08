@@ -35,7 +35,6 @@ fn sdlAppIterate(appstate: ?*anyopaque) !sdl.SDL_AppResult {
 }
 
 fn sdlAppEvent(appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.SDL_AppResult {
-    _ = c.gui.cImGui_ImplSDL3_ProcessEvent(@ptrCast(event));
     return app.event_loop.process(appstate, event);
 }
 

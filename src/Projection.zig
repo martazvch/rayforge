@@ -1,7 +1,7 @@
 const gui = @import("c").gui;
 const m = @import("math.zig").math;
 const Camera = @import("Camera.zig");
-const Object = @import("object.zig").Object;
+const Sdf = @import("sdf.zig").Sdf;
 
 view: m.Mat4,
 proj: m.Mat4,
@@ -58,7 +58,7 @@ pub fn worldToScreen(self: *const Self, point: m.Vec3) ?[2]f32 {
     };
 }
 
-pub fn drawBoundingBox(proj: *const Self, obj: *const Object, color: u32) void {
+pub fn drawBoundingBox(proj: *const Self, obj: *const Sdf, color: u32) void {
     const aabb = obj.getAABB();
     const corners_3d = aabb.getCorners();
 

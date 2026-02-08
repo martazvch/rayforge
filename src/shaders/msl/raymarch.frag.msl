@@ -52,7 +52,8 @@ struct SDFObject
     float3 color;
     uint operation;
     float smooth_factor;
-    spvUnsafeArray<float, 3> _pad;
+    short visible;
+    spvUnsafeArray<float, 2> _pad;
 };
 
 struct SceneInfo
@@ -69,7 +70,8 @@ struct SDFObject_1
     packed_float3 color;
     uint operation;
     float smooth_factor;
-    float _pad[3];
+    uint visible;
+    float _pad[2];
 };
 
 struct SceneBlock
@@ -231,23 +233,27 @@ SceneInfo getDist(thread const float3& p, const device SceneBlock& _394)
         obj.color = float3(_394.objects[i].color);
         obj.operation = _394.objects[i].operation;
         obj.smooth_factor = _394.objects[i].smooth_factor;
+        obj.visible = short(_394.objects[i].visible != 0u);
         obj._pad[0] = _394.objects[i]._pad[0];
         obj._pad[1] = _394.objects[i]._pad[1];
-        obj._pad[2] = _394.objects[i]._pad[2];
+        if (!bool(obj.visible))
+        {
+            continue;
+        }
         SDFObject param = obj;
         float3 param_1 = p;
         float obj_dist = evaluateSDF(param, param_1);
-        bool _467 = i == 0u;
-        bool _473;
-        if (_467)
+        bool _476 = i == 0u;
+        bool _482;
+        if (_476)
         {
-            _473 = obj.operation == 0u;
+            _482 = obj.operation == 0u;
         }
         else
         {
-            _473 = _467;
+            _482 = _476;
         }
-        if (_473)
+        if (_482)
         {
             result_dist = obj_dist;
             result_mat = int(i + 1u);
@@ -260,17 +266,17 @@ SceneInfo getDist(thread const float3& p, const device SceneBlock& _394)
             uint param_4 = obj.operation;
             float param_5 = obj.smooth_factor;
             result_dist = applyOperation(param_2, param_3, param_4, param_5);
-            bool _496 = result_dist == obj_dist;
-            bool _507;
-            if (!_496)
+            bool _505 = result_dist == obj_dist;
+            bool _516;
+            if (!_505)
             {
-                _507 = (obj.operation == 4u) && (obj_dist < prev_dist);
+                _516 = (obj.operation == 4u) && (obj_dist < prev_dist);
             }
             else
             {
-                _507 = _496;
+                _516 = _505;
             }
-            if (_507)
+            if (_516)
             {
                 result_mat = int(i + 1u);
             }
@@ -291,17 +297,17 @@ SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread cons
         SceneInfo info = getDist(param, _394);
         dO += info.dist;
         material = info.material;
-        bool _591 = dO > maxDist;
-        bool _599;
-        if (!_591)
+        bool _600 = dO > maxDist;
+        bool _608;
+        if (!_600)
         {
-            _599 = abs(info.dist) < 0.001000000047497451305389404296875;
+            _608 = abs(info.dist) < 0.001000000047497451305389404296875;
         }
         else
         {
-            _599 = _591;
+            _608 = _600;
         }
-        if (_599)
+        if (_608)
         {
             break;
         }
@@ -378,10 +384,10 @@ float3 getObjectColor(thread const int& material, const device SceneBlock& _394)
 }
 
 static inline __attribute__((always_inline))
-float4 getGridColorAA(thread const float3& p, constant CameraBlock& _699)
+float4 getGridColorAA(thread const float3& p, constant CameraBlock& _708)
 {
     float2 coord = p.xz;
-    float camDist = length(float3(_699.cam_pos) - p);
+    float camDist = length(float3(_708.cam_pos) - p);
     float distFade = 1.0 - smoothstep(40.0, 90.0, camDist);
     float2 dx = dfdx(coord);
     float2 dy = dfdy(coord);
@@ -407,15 +413,15 @@ float4 getGridColorAA(thread const float3& p, constant CameraBlock& _699)
     return float4(color, alpha);
 }
 
-fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _699 [[buffer(0)]], const device SceneBlock& _394 [[buffer(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _708 [[buffer(0)]], const device SceneBlock& _394 [[buffer(1)]])
 {
     main0_out out = {};
     float2 uv = (in.fragTexCoord * 2.0) - float2(1.0);
-    uv.x *= (_699.resolution.x / _699.resolution.y);
-    float fov_factor = tan(_699.fov * 0.5);
+    uv.x *= (_708.resolution.x / _708.resolution.y);
+    float fov_factor = tan(_708.fov * 0.5);
     uv *= fov_factor;
-    float3 rd = fast::normalize(_699.cam_rot * float3(uv.x, uv.y, 1.0));
-    float3 ro = float3(_699.cam_pos);
+    float3 rd = fast::normalize(_708.cam_rot * float3(uv.x, uv.y, 1.0));
+    float3 ro = float3(_708.cam_pos);
     float gridT = 101.0;
     if (abs(rd.y) > 9.9999999747524270787835121154785e-07)
     {
@@ -445,7 +451,7 @@ fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _699 [[
     {
         float3 p_1 = ro + (rd * gridT);
         float3 param_5 = p_1;
-        float4 grid = getGridColorAA(param_5, _699);
+        float4 grid = getGridColorAA(param_5, _708);
         col = mix(col, grid.xyz, float3(grid.w));
     }
     out.outColor = float4(col, 1.0);

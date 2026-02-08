@@ -309,7 +309,7 @@ fn applyPendingResize(self: *Self) void {
 
 pub fn frame(
     self: *Self,
-    scene: *const Scene,
+    scene: *Scene,
     camera: *const Camera,
     editor: *Editor,
     event_loop: *EventLoop,
@@ -490,7 +490,7 @@ fn updateSceneBuffer(self: *Self, scene: *const Scene) void {
         debug_logged = true;
         std.debug.print("DEBUG: Scene.Data size = {}\n", .{@sizeOf(Scene.Data)});
         std.debug.print("DEBUG: SDFObject size = {}\n", .{@sizeOf(Scene.SDFObject)});
-        std.debug.print("DEBUG: object_count = {}\n", .{scene.data.object_count});
+        std.debug.print("DEBUG: object_count = {}\n", .{scene.data.count});
         std.debug.print("DEBUG: First 32 bytes: ", .{});
         const bytes = @as([*]const u8, @ptrCast(&scene.data));
         for (0..32) |i| {

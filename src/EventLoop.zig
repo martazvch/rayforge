@@ -68,11 +68,11 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
                 const ray = self.camera.screenToRay(x, y, self.viewport.rect.size);
 
                 if (self.scene.raymarch(ray.ro, ray.rd)) |hit| {
-                    self.scene.obj_selected = hit;
-                    self.camera.pivot = self.scene.data.objects[hit].position;
+                    self.scene.selected = hit;
+                    self.camera.pivot = self.scene.data.sdfs[hit].position;
                     self.camera.orbit();
                 } else {
-                    self.scene.obj_selected = null;
+                    self.scene.selected = null;
                 }
             }
         },

@@ -18,7 +18,8 @@ struct SDFObject {
     vec3 color;
     uint operation;
     float smooth_factor;
-    float _pad[3];
+    bool visible;
+    float _pad[2];
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
@@ -117,6 +118,11 @@ SceneInfo getDist(vec3 p) {
 
     for (uint i = 0; i < object_count && i < 128; ++i) {
         SDFObject obj = objects[i];
+
+        if (!obj.visible) {
+            continue;
+        }
+
         float obj_dist = evaluateSDF(obj, p);
 
         if (i == 0 && obj.operation == OP_NONE) {

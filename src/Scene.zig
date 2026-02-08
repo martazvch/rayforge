@@ -2,37 +2,83 @@ const c = @import("c");
 const sdl = c.sdl;
 const m = @import("math.zig").math;
 const Camera = @import("Camera.zig");
-const Object = @import("object.zig").Object;
+const sdf = @import("sdf.zig");
+const Sdf = sdf.Sdf;
 
 data: Data,
-obj_selected: ?usize,
+objects: [MAX_OBJECTS]Object,
+selected: ?usize,
 
 const Self = @This();
-
 const MAX_OBJECTS = 32;
 
 pub const Data = extern struct {
-    object_count: u32,
+    count: u32,
     _pad: [3]u32 = undefined,
-    objects: [MAX_OBJECTS]Object,
+    sdfs: [MAX_OBJECTS]Sdf,
 
     pub const empty: Data = .{
-        .object_count = 0,
-        .objects = undefined,
+        .count = 0,
+        .sdfs = undefined,
+    };
+};
+
+const Object = struct {
+    name: [name_size]u8 = @splat(0),
+    index: usize,
+    properties: Properties,
+
+    pub const name_size = 64;
+};
+
+const Properties = struct {
+    transform: m.Vec3,
+    scale: m.Vec3,
+    rotation: m.Vec3,
+
+    pub const init: Properties = .{
+        .transform = .zero,
+        .scale = .one,
+        .rotation = .zero,
     };
 };
 
 pub fn init() Self {
     return .{
         .data = .empty,
-        .obj_selected = null,
+        .selected = null,
+        .objects = undefined,
     };
 }
 
-pub fn selected(self: *const Self) ?*const Object {
-    return &self.data.objects[
-        self.obj_selected orelse return null
+pub fn getSelectedSdf(self: *Self) ?*Sdf {
+    return &self.data.sdfs[
+        self.selected orelse return null
     ];
+}
+
+pub fn getSelectedObj(self: *Self) ?*Object {
+    return &self.objects[
+        self.selected orelse return null
+    ];
+}
+
+pub fn addObject(self: *Self, name: []const u8, kind: sdf.Kind, params: m.Vec4) void {
+    self.data.sdfs[self.data.count] = .{
+        .position = .zero,
+        .kind = kind,
+        .params = params,
+        .color = .new(1.0, 1.0, 1.0),
+        .op = if (self.data.count == 0) .none else .union_op,
+        .smooth_factor = 0.5,
+        .visible = true,
+    };
+    self.objects[self.data.count] = .{
+        .index = self.data.count,
+        .properties = .init,
+    };
+    @memcpy(self.objects[self.data.count].name[0..name.len], name);
+    self.data.count += 1;
 }
 
 pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?usize {
@@ -47,8 +93,13 @@ pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?usize {
         var result_dist: f32 = 100.0;
         var result_index: ?usize = null;
 
-        for (0..self.data.object_count) |i| {
-            const obj = &self.data.objects[i];
+        for (0..self.data.count) |i| {
+            const obj = &self.data.sdfs[i];
+
+            if (!obj.visible) {
+                continue;
+            }
+
             const d = obj.evaluateSDF(p);
 
             if (d < result_dist) {
@@ -73,15 +124,18 @@ pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?usize {
 }
 
 pub fn debug(self: *Self) void {
-    self.data.objects[0] = .{
-        .position = .new(0.0, 2.0, -5.0),
-        .kind = .sphere,
-        .params = .new(1.0, 0.0, 0.0, 0.0), // Radius 1
-        .color = .new(1.0, 1.0, 1.0),
-        .op = .none, // First object should use none
-        .smooth_factor = 0.0,
-    };
-    self.data.object_count += 1;
+    self.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
+    self.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
+
+    // self.data.sdfs[0] = .{
+    //     .position = .new(0.0, 2.0, -5.0),
+    //     .kind = .sphere,
+    //     .params = .new(1.0, 0.0, 0.0, 0.0), // Radius 1
+    //     .color = .new(1.0, 1.0, 1.0),
+    //     .op = .none, // First object should use none
+    //     .smooth_factor = 0.0,
+    // };
+    // self.data.count += 1;
 
     // self.data.objects[1] = .{
     //     .position = .new(1.0, 1.0, -5.0),

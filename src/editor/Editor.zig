@@ -6,7 +6,7 @@ const m = @import("../math.zig").math;
 const theme = @import("theme.zig");
 const State = @import("State.zig");
 const Scene = @import("../Scene.zig");
-const Layout = @import("Layout.zig");
+const Layout = @import("layout.zig");
 const Viewport = @import("Viewport.zig");
 const Pipeline = @import("../Pipeline.zig");
 const EventLoop = @import("../EventLoop.zig");
@@ -17,11 +17,13 @@ const fatal = @import("../utils.zig").fatal;
 
 imio: *gui.ImGuiIO,
 state: State,
+device: *sdl.SDL_GPUDevice,
+window: *sdl.SDL_Window,
 viewport: Viewport,
 
 const Self = @This();
 
-pub fn init(device: ?*sdl.SDL_GPUDevice, window: ?*sdl.SDL_Window) Self {
+pub fn init(device: *sdl.SDL_GPUDevice, window: *sdl.SDL_Window) Self {
     _ = gui.CIMGUI_CHECKVERSION();
     _ = gui.ImGui_CreateContext(null);
 
@@ -75,6 +77,8 @@ pub fn init(device: ?*sdl.SDL_GPUDevice, window: ?*sdl.SDL_Window) Self {
     return .{
         .imio = imio,
         .state = .init(),
+        .device = device,
+        .window = window,
         .viewport = .init(),
     };
 }
@@ -91,7 +95,7 @@ pub fn newFrame(_: *const Self) void {
     gui.ImGui_NewFrame();
 }
 
-pub fn render(self: *Self, pipeline: *Pipeline, scene: *const Scene, camera: *const Camera, event_loop: *EventLoop) void {
+pub fn render(self: *Self, pipeline: *Pipeline, scene: *Scene, camera: *const Camera, event_loop: *EventLoop) void {
     // --------
     //  Render
     // --------
@@ -122,8 +126,13 @@ pub fn render(self: *Self, pipeline: *Pipeline, scene: *const Scene, camera: *co
     event_loop.setViewportState(self.viewport.rect.isIn(mouse_pos.x, mouse_pos.y));
 }
 
-fn drawBoundingBox(scene: *const Scene, camera: *const Camera, vp: Rect) void {
-    const obj = scene.selected() orelse return;
+fn drawBoundingBox(scene: *Scene, camera: *const Camera, vp: Rect) void {
+    const obj = scene.getSelectedSdf() orelse return;
+
+    if (!obj.visible) {
+        return;
+    }
+
     const proj: Projection = .init(camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
 
     const aabb = obj.getAABB();
@@ -170,7 +179,7 @@ fn drawBoundingBox(scene: *const Scene, camera: *const Camera, vp: Rect) void {
         .{ 3, 7, 5, 2 }, // front + left
     };
 
-    // Get ImGui's foreground draw list — draws on top of everything
+    // Draw on top of everything
     const draw_list = gui.ImGui_GetForegroundDrawList();
 
     for (edges) |e| {
@@ -189,16 +198,6 @@ fn drawBoundingBox(scene: *const Scene, camera: *const Camera, vp: Rect) void {
                 1.5,
             );
         }
-        // else {
-        //     // Optional: draw back edges dimmer (like Blender's X-ray mode)
-        //     c.gui.ImDrawList_AddLineEx(
-        //         draw_list,
-        //         .{ .x = a[0], .y = a[1] },
-        //         .{ .x = b[0], .y = b[1] },
-        //         0x4000BFFF,
-        //         1.0,
-        //     );
-        // }
     }
 }
 

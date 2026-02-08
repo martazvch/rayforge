@@ -42,6 +42,15 @@ pub fn build(b: *std.Build) void {
     });
     c.linkLibrary(sdl_lib);
     c.linkLibrary(imgui_lib);
+
+    // stb_image
+    c.addIncludePath(b.path("src"));
+    c.addCSourceFile(.{
+        .file = b.path("src/stb_image.h"),
+        .flags = &.{},
+        .language = .c,
+    });
+
     exe.root_module.addImport("c", c);
 
     // -------

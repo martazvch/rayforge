@@ -1,15 +1,14 @@
 const m = @import("math.zig").math;
 const Aabb = @import("Aabb.zig");
 
-const Camera = @import("Camera.zig");
-const Type = enum(u32) {
+pub const Kind = enum(u32) {
     sphere,
     box,
     torus,
     cylinder,
 };
 
-const Op = enum(u32) {
+pub const Op = enum(u32) {
     none,
     union_op,
     subtract,
@@ -19,9 +18,9 @@ const Op = enum(u32) {
     smooth_intersect,
 };
 
-pub const Object = extern struct {
+pub const Sdf = extern struct {
     position: m.Vec3,
-    kind: Type,
+    kind: Kind,
 
     params: m.Vec4,
 
@@ -29,9 +28,10 @@ pub const Object = extern struct {
     op: Op,
 
     smooth_factor: f32,
-    _pad: [3]f32 = undefined,
+    visible: bool,
+    _pad: [2]f32 = undefined,
 
-    pub fn evaluateSDF(self: *const Object, p: m.Vec3) f32 {
+    pub fn evaluateSDF(self: *const Sdf, p: m.Vec3) f32 {
         // Local position
         const lp = p.sub(self.position);
 
@@ -52,7 +52,7 @@ pub const Object = extern struct {
         return q.componentMax(.zero).length() + @min(@max(b.x, @max(b.y, b.z)), 0.0) - r;
     }
 
-    pub fn getAABB(self: *const Object) Aabb {
+    pub fn getAABB(self: *const Sdf) Aabb {
         const pos = self.position;
         const par = self.params;
 

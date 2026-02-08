@@ -28,12 +28,12 @@ pub fn applyTheme() void {
     const accent_blue = gui.ImVec4{ .x = 0.40, .y = 0.63, .z = 0.90, .w = 1.00 }; // #66a0e6
 
     // General configuration
-    style.WindowPadding = gui.ImVec2{ .x = 12, .y = 12 };
-    style.FramePadding = gui.ImVec2{ .x = 8, .y = 6 };
-    style.CellPadding = gui.ImVec2{ .x = 6, .y = 4 };
-    style.ItemSpacing = gui.ImVec2{ .x = 8, .y = 6 };
-    style.ItemInnerSpacing = gui.ImVec2{ .x = 6, .y = 6 };
-    style.TouchExtraPadding = gui.ImVec2{ .x = 0, .y = 0 };
+    style.WindowPadding = .{ .x = 12, .y = 12 };
+    style.FramePadding = .{ .x = 8, .y = 6 };
+    style.CellPadding = .{ .x = 6, .y = 4 };
+    style.ItemSpacing = .{ .x = 8, .y = 6 };
+    style.ItemInnerSpacing = .{ .x = 6, .y = 6 };
+    style.TouchExtraPadding = .{ .x = 0, .y = 0 };
     style.IndentSpacing = 20.0;
     style.ScrollbarSize = 14.0;
     style.GrabMinSize = 10.0;
@@ -56,11 +56,11 @@ pub fn applyTheme() void {
     style.TabRounding = 6.0;
 
     // Alignment
-    style.WindowTitleAlign = gui.ImVec2{ .x = 0.50, .y = 0.50 };
+    style.WindowTitleAlign = .{ .x = 0.5, .y = 0.5 };
     style.WindowMenuButtonPosition = gui.ImGuiDir_Left;
     style.ColorButtonPosition = gui.ImGuiDir_Right;
-    style.ButtonTextAlign = gui.ImVec2{ .x = 0.50, .y = 0.50 };
-    style.SelectableTextAlign = gui.ImVec2{ .x = 0.00, .y = 0.00 };
+    style.ButtonTextAlign = .{ .x = 0.5, .y = 0.5 };
+    style.SelectableTextAlign = .{ .x = 0, .y = 0 };
 
     // Anti-aliasing
     style.AntiAliasedLines = true;
@@ -74,26 +74,26 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_ChildBg] = bg_medium;
     colors[gui.ImGuiCol_PopupBg] = bg_dark;
     colors[gui.ImGuiCol_Border] = border;
-    colors[gui.ImGuiCol_BorderShadow] = gui.ImVec4{ .x = 0.00, .y = 0.00, .z = 0.00, .w = 0.00 };
+    colors[gui.ImGuiCol_BorderShadow] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
     colors[gui.ImGuiCol_FrameBg] = bg_medium;
     colors[gui.ImGuiCol_FrameBgHovered] = bg_light;
-    colors[gui.ImGuiCol_FrameBgActive] = gui.ImVec4{ .x = 0.20, .y = 0.20, .z = 0.25, .w = 1.00 };
+    colors[gui.ImGuiCol_FrameBgActive] = .{ .x = 0.20, .y = 0.20, .z = 0.25, .w = 1.00 };
     colors[gui.ImGuiCol_TitleBg] = bg_dark;
     colors[gui.ImGuiCol_TitleBgActive] = bg_dark;
     colors[gui.ImGuiCol_TitleBgCollapsed] = bg_medium;
     colors[gui.ImGuiCol_MenuBarBg] = bg_very_dark;
     colors[gui.ImGuiCol_ScrollbarBg] = bg_dark;
     colors[gui.ImGuiCol_ScrollbarGrab] = bg_light;
-    colors[gui.ImGuiCol_ScrollbarGrabHovered] = gui.ImVec4{ .x = 0.25, .y = 0.25, .z = 0.30, .w = 1.00 };
+    colors[gui.ImGuiCol_ScrollbarGrabHovered] = .{ .x = 0.25, .y = 0.25, .z = 0.30, .w = 1.00 };
     colors[gui.ImGuiCol_ScrollbarGrabActive] = accent_purple_dim;
     colors[gui.ImGuiCol_CheckMark] = accent_purple;
     colors[gui.ImGuiCol_SliderGrab] = accent_purple;
     colors[gui.ImGuiCol_SliderGrabActive] = accent_blue;
-    colors[gui.ImGuiCol_Button] = bg_light;
-    colors[gui.ImGuiCol_ButtonHovered] = gui.ImVec4{ .x = 0.22, .y = 0.22, .z = 0.28, .w = 1.00 };
+    colors[gui.ImGuiCol_Button] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
+    colors[gui.ImGuiCol_ButtonHovered] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
     colors[gui.ImGuiCol_ButtonActive] = accent_purple_dim;
     colors[gui.ImGuiCol_Header] = bg_light;
-    colors[gui.ImGuiCol_HeaderHovered] = gui.ImVec4{ .x = 0.25, .y = 0.25, .z = 0.32, .w = 1.00 };
+    colors[gui.ImGuiCol_HeaderHovered] = .{ .x = 0.25, .y = 0.25, .z = 0.32, .w = 1.00 };
     colors[gui.ImGuiCol_HeaderActive] = accent_purple_dim;
     colors[gui.ImGuiCol_Separator] = border;
     colors[gui.ImGuiCol_SeparatorHovered] = accent_purple_dim;
@@ -114,13 +114,13 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_PlotHistogramHovered] = accent_blue;
     colors[gui.ImGuiCol_TableHeaderBg] = bg_medium;
     colors[gui.ImGuiCol_TableBorderStrong] = border;
-    colors[gui.ImGuiCol_TableBorderLight] = gui.ImVec4{ .x = 0.20, .y = 0.20, .z = 0.25, .w = 1.00 };
-    colors[gui.ImGuiCol_TableRowBg] = gui.ImVec4{ .x = 0.00, .y = 0.00, .z = 0.00, .w = 0.00 };
-    colors[gui.ImGuiCol_TableRowBgAlt] = gui.ImVec4{ .x = 1.00, .y = 1.00, .z = 1.00, .w = 0.03 };
+    colors[gui.ImGuiCol_TableBorderLight] = .{ .x = 0.20, .y = 0.20, .z = 0.25, .w = 1.00 };
+    colors[gui.ImGuiCol_TableRowBg] = .{ .x = 0.00, .y = 0.00, .z = 0.00, .w = 0.00 };
+    colors[gui.ImGuiCol_TableRowBgAlt] = .{ .x = 1.00, .y = 1.00, .z = 1.00, .w = 0.03 };
     colors[gui.ImGuiCol_TextSelectedBg] = accent_purple_dim;
     colors[gui.ImGuiCol_DragDropTarget] = accent_blue;
     colors[gui.ImGuiCol_NavHighlight] = accent_purple;
     colors[gui.ImGuiCol_NavWindowingHighlight] = accent_purple;
-    colors[gui.ImGuiCol_NavWindowingDimBg] = gui.ImVec4{ .x = 0.20, .y = 0.20, .z = 0.20, .w = 0.50 };
-    colors[gui.ImGuiCol_ModalWindowDimBg] = gui.ImVec4{ .x = 0.10, .y = 0.10, .z = 0.10, .w = 0.60 };
+    colors[gui.ImGuiCol_NavWindowingDimBg] = .{ .x = 0.20, .y = 0.20, .z = 0.20, .w = 0.50 };
+    colors[gui.ImGuiCol_ModalWindowDimBg] = .{ .x = 0.10, .y = 0.10, .z = 0.10, .w = 0.60 };
 }
