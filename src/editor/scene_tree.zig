@@ -38,13 +38,13 @@ fn header(scene: *Scene) void {
             scene.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
         }
         if (gui.ImGui_MenuItem("Box")) {
-            scene.addObject("Box", .sphere, .new(1.0, 1.0, 1.0, 0.0));
-        }
-        if (gui.ImGui_MenuItem("Torus")) {
-            // addObject(scene, .torus, "Torus");
+            scene.addObject("Box", .box, .new(1.0, 1.0, 1.0, 0.0));
         }
         if (gui.ImGui_MenuItem("Cylinder")) {
-            // addObject(scene, .cylinder, "Cylinder");
+            scene.addObject("Cylinder", .cylinder, .new(1.0, 1.0, 0.0, 0.0));
+        }
+        if (gui.ImGui_MenuItem("Torus")) {
+            scene.addObject("Torus", .torus, .new(1.0, 0.3, 0.0, 0.0));
         }
         gui.ImGui_EndPopup();
     }

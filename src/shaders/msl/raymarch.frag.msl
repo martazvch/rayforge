@@ -114,17 +114,17 @@ float sdBox(thread const float3& p, thread const float3& b, thread const float& 
 }
 
 static inline __attribute__((always_inline))
-float sdTorus(thread const float3& p, thread const float2& t)
-{
-    float2 q = float2(length(p.xz) - t.x, p.y);
-    return length(q) - t.y;
-}
-
-static inline __attribute__((always_inline))
 float sdCylinder(thread const float3& p, thread const float2& h)
 {
     float2 d = abs(float2(length(p.xz), p.y)) - h;
     return fast::min(fast::max(d.x, d.y), 0.0) + length(fast::max(d, float2(0.0)));
+}
+
+static inline __attribute__((always_inline))
+float sdTorus(thread const float3& p, thread const float2& t)
+{
+    float2 q = float2(length(p.xz) - t.x, p.y);
+    return length(q) - t.y;
 }
 
 static inline __attribute__((always_inline))
@@ -148,13 +148,13 @@ float evaluateSDF(thread const SDFObject& obj, thread const float3& p)
     {
         float3 param_5 = local_p;
         float2 param_6 = obj.params.xy;
-        return sdTorus(param_5, param_6);
+        return sdCylinder(param_5, param_6);
     }
     if (obj.sdf_type == 3u)
     {
         float3 param_7 = local_p;
         float2 param_8 = obj.params.xy;
-        return sdCylinder(param_7, param_8);
+        return sdTorus(param_7, param_8);
     }
     return 1000.0;
 }

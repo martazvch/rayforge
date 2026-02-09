@@ -35,8 +35,8 @@ layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
 
 #define SDF_SPHERE 0
 #define SDF_BOX 1
-#define SDF_TORUS 2
-#define SDF_CYLINDER 3
+#define SDF_CYLINDER 2
+#define SDF_TORUS 3
 
 #define OP_NONE 0
 #define OP_UNION 1
@@ -60,14 +60,14 @@ float sdBox(vec3 p, vec3 b, float r) {
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 
-float sdTorus(vec3 p, vec2 t) {
-    vec2 q = vec2(length(p.xz) - t.x, p.y);
-    return length(q) - t.y;
-}
-
 float sdCylinder(vec3 p, vec2 h) {
     vec2 d = abs(vec2(length(p.xz), p.y)) - h;
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+
+float sdTorus(vec3 p, vec2 t) {
+    vec2 q = vec2(length(p.xz) - t.x, p.y);
+    return length(q) - t.y;
 }
 
 float smoothUnion(float d1, float d2, float k) {
@@ -89,8 +89,8 @@ float evaluateSDF(SDFObject obj, vec3 p) {
     vec3 local_p = p - obj.position;
     if (obj.sdf_type == SDF_SPHERE)   return sdSphere(local_p, obj.params.x);
     if (obj.sdf_type == SDF_BOX)      return sdBox(local_p, obj.params.xyz, obj.params.w);
-    if (obj.sdf_type == SDF_TORUS)    return sdTorus(local_p, obj.params.xy);
     if (obj.sdf_type == SDF_CYLINDER) return sdCylinder(local_p, obj.params.xy);
+    if (obj.sdf_type == SDF_TORUS)    return sdTorus(local_p, obj.params.xy);
     return 1000.0;
 }
 

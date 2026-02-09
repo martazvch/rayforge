@@ -29,7 +29,7 @@ pub fn applyTheme() void {
 
     // General configuration
     style.WindowPadding = .{ .x = 12, .y = 12 };
-    style.FramePadding = .{ .x = 8, .y = 6 };
+    style.FramePadding = .{ .x = 4, .y = 2 };
     style.CellPadding = .{ .x = 6, .y = 4 };
     style.ItemSpacing = .{ .x = 8, .y = 6 };
     style.ItemInnerSpacing = .{ .x = 6, .y = 6 };
@@ -91,7 +91,7 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_SliderGrabActive] = accent_blue;
     colors[gui.ImGuiCol_Button] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
     colors[gui.ImGuiCol_ButtonHovered] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
-    colors[gui.ImGuiCol_ButtonActive] = accent_purple_dim;
+    colors[gui.ImGuiCol_ButtonActive] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
     colors[gui.ImGuiCol_Header] = bg_light;
     colors[gui.ImGuiCol_HeaderHovered] = .{ .x = 0.25, .y = 0.25, .z = 0.32, .w = 1.00 };
     colors[gui.ImGuiCol_HeaderActive] = accent_purple_dim;
