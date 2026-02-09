@@ -16,6 +16,10 @@
             .url = "git+https://github.com/martazvch/zimgui#35db8d91abba404e4a42bc6254684185af6e5879",
             .hash = "zimgui-0.0.0-AmMy4eXkUgAWtF4IJpvhoHoPAvSu72TGs5CZlpUBFgE3",
         },
+        .zstbi = .{
+            .url = "git+https://github.com/martazvch/zstbi#51d1948d333931ba56ebe28152a3930cc0d74fd3",
+            .hash = "zstbi-0.0.0-L9HIPXdWBAAQEt7e_M_-gMyaK9hkx-qTRuvA-UmXAGlO",
+        },
     },
     .paths = .{
         "build.zig",

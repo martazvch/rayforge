@@ -10,6 +10,10 @@ pub var eye_closed: Texture = undefined;
 pub var camera: Texture = undefined;
 pub var fullscreen: Texture = undefined;
 
+pub var union_op: Texture = undefined;
+pub var subtract_op: Texture = undefined;
+pub var intersect_op: Texture = undefined;
+
 pub var sphere: Texture = undefined;
 pub var cube: Texture = undefined;
 pub var cylinder: Texture = undefined;
@@ -21,7 +25,11 @@ pub fn init(device: *sdl.SDL_GPUDevice) void {
     camera = .load(device, folder ++ "camera.png");
     fullscreen = .load(device, folder ++ "fullscreen.png");
 
-    sphere = .load(device, folder ++ "sphere.png");
+    union_op = .load(device, folder ++ "union.png");
+    subtract_op = .load(device, folder ++ "subtract.png");
+    intersect_op = .load(device, folder ++ "intersect.png");
+
+    sphere = .load(device, folder ++ "circle.png");
     cube = .load(device, folder ++ "cube.png");
     cylinder = .load(device, folder ++ "cylinder.png");
     torus = .load(device, folder ++ "torus.png");

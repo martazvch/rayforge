@@ -5,13 +5,22 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "sdl3_gpu",
+        .name = "ray-forge",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
         }),
     });
+
+    // -------
+    //  ZLM
+    // -------
+    const zlm_dep = b.dependency("zlm", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.root_module.addImport("zlm", zlm_dep.module("zlm"));
 
     // -------
     //  SDL3
@@ -33,6 +42,15 @@ pub fn build(b: *std.Build) void {
     const imgui_lib = imgui_dep.artifact("imgui");
 
     // -------
+    //  Zstbi
+    // -------
+    const zstbi_dep = b.dependency("zstbi", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zstbi_lib = zstbi_dep.artifact("zstbi");
+
+    // -------
     //  All C
     // -------
     const c = b.createModule(.{
@@ -42,25 +60,8 @@ pub fn build(b: *std.Build) void {
     });
     c.linkLibrary(sdl_lib);
     c.linkLibrary(imgui_lib);
-
-    // stb_image
-    c.addIncludePath(b.path("src"));
-    c.addCSourceFile(.{
-        .file = b.path("src/stb_image.h"),
-        .flags = &.{},
-        .language = .c,
-    });
-
+    c.linkLibrary(zstbi_lib);
     exe.root_module.addImport("c", c);
-
-    // -------
-    //  ZLM
-    // -------
-    const zlm_dep = b.dependency("zlm", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.root_module.addImport("zlm", zlm_dep.module("zlm"));
 
     b.installArtifact(exe);
 
@@ -96,7 +97,8 @@ pub fn build(b: *std.Build) void {
         .root_module = exe.root_module,
     });
     exe_check.root_module.linkLibrary(sdl_lib);
-    exe_check.linkLibrary(imgui_lib);
+    exe_check.root_module.linkLibrary(imgui_lib);
+    exe_check.root_module.linkLibrary(zstbi_lib);
     exe_check.root_module.addImport("zlm", zlm_dep.module("zlm"));
 
     const check = b.step("check", "Check if foo compiles");

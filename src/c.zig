@@ -5,8 +5,6 @@ pub const sdl = @cImport({
 });
 
 pub const img = @cImport({
-    @cDefine("STB_IMAGE_IMPLEMENTATION", {});
-    @cDefine("STBI_ONLY_PNG", {});
     @cInclude("stb_image.h");
 });
 
