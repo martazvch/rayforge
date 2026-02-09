@@ -179,8 +179,15 @@ fn drawBoundingBox(scene: *Scene, camera: *const Camera, vp: Rect) void {
         .{ 3, 7, 5, 2 }, // front + left
     };
 
-    // Draw on top of everything
+    // Draw on top of everything but only on 3D viewport
     const draw_list = gui.ImGui_GetForegroundDrawList();
+    gui.ImDrawList_PushClipRect(
+        draw_list,
+        .{ .x = vp.pos.x, .y = vp.pos.y },
+        .{ .x = vp.pos.x + vp.size.x, .y = vp.pos.y + vp.size.y },
+        true,
+    );
+    defer gui.ImDrawList_PopClipRect(draw_list);
 
     for (edges) |e| {
         const a = corners[e[0]] orelse continue;
