@@ -1,4 +1,5 @@
-const m = @import("math.zig").zlm;
+const math = @import("math.zig");
+const m = math.zlm;
 const Aabb = @import("Aabb.zig");
 
 pub const Kind = enum(u32) {
@@ -16,6 +17,7 @@ pub const Op = enum(u32) {
 };
 
 pub const Sdf = extern struct {
+    transform: m.Mat4,
     /// Sphere
     ///  x: radius
     /// Box
@@ -30,20 +32,21 @@ pub const Sdf = extern struct {
     ///  y: minor radius
     params: m.Vec4,
 
-    position: m.Vec3,
-    scale: f32,
-
     kind: Kind,
     op: Op,
     smooth_factor: f32,
-    visible: bool,
+    scale: f32,
 
     color: m.Vec3,
-    _pad: f32 = undefined,
+    visible: bool,
+
+    pub fn getPos(self: *const Sdf) m.Vec3 {
+        return math.vec3FromSlice(self.transform.fields[3][0..3]);
+    }
 
     pub fn evaluateSDF(self: *const Sdf, p: m.Vec3) f32 {
         // Local position
-        const lp = p.sub(self.position);
+        const lp = p.sub(self.getPos());
 
         return switch (self.kind) {
             .sphere => sdSphere(lp, self.params.x),
@@ -76,8 +79,31 @@ pub const Sdf = extern struct {
         return q.length() - t.y;
     }
 
+    pub fn getLocalAABB(self: *const Sdf) Aabb {
+        const par = self.params;
+
+        return switch (self.kind) {
+            .sphere => .{
+                .min = m.Vec3.one.scale(-par.x),
+                .max = m.Vec3.one.scale(par.x),
+            },
+            .box => .{
+                .min = .new(-par.x, -par.y, -par.z),
+                .max = .new(par.x, par.y, par.z),
+            },
+            .cylinder => .{
+                .min = .new(-par.x, -par.y, -par.x),
+                .max = .new(par.x, par.y, par.x),
+            },
+            .torus => .{
+                .min = .new(-(par.x + par.y), -par.y, -(par.x + par.y)),
+                .max = .new(par.x + par.y, par.y, par.x + par.y),
+            },
+        };
+    }
+
     pub fn getAABB(self: *const Sdf) Aabb {
-        const pos = self.position;
+        const pos = self.getPos();
         const par = self.params;
 
         return switch (self.kind) {

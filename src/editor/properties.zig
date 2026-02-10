@@ -18,14 +18,21 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     const sdf = scene.getSelectedSdf() orelse return;
     const obj = scene.getSelectedObj() orelse return;
 
-    vec3Edit("Transform", &sdf.position, 0.05, 0, 0, "%.2f");
-    // vec3Edit("Scale", &obj.properties.scale, 0.05, 0.01, 100.0, "%.2f");
+    var pos: m.Vec3 = sdf.getPos();
+    vec3Edit("Transform", &pos, 0.05, 0, 0, "%.2f");
+
     vec3Edit("Rotation", &obj.properties.rotation, 0.5, -360.0, 360.0, "%.1f");
 
-    gui.ImGui_SeparatorText("Scale");
-    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
-    _ = gui.ImGui_DragFloatEx("##Scale", &sdf.scale, 0.01, 0.01, 100, "%.2f", 0);
+    sdf.transform = m.Mat4.createAngleAxis(.unitX, m.toRadians(obj.properties.rotation.x))
+        .mul(.createAngleAxis(.unitY, m.toRadians(obj.properties.rotation.y)))
+        .mul(.createAngleAxis(.unitZ, m.toRadians(obj.properties.rotation.z)))
+        .transpose();
 
+    sdf.transform.fields[3][0] = pos.x;
+    sdf.transform.fields[3][1] = pos.y;
+    sdf.transform.fields[3][2] = pos.z;
+
+    scale(sdf);
     operations(sdf);
     material(sdf);
 }
@@ -51,6 +58,12 @@ fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fm
     }
 }
 
+fn scale(sdf: *Sdf.Sdf) void {
+    gui.ImGui_SeparatorText("Scale");
+    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
+    _ = gui.ImGui_DragFloatEx("##Scale", &sdf.scale, 0.01, 0.01, 100, "%.2f", 0);
+}
+
 fn operations(sdf: *Sdf.Sdf) void {
     gui.ImGui_SeparatorText("Operation");
 
@@ -65,7 +78,7 @@ fn operations(sdf: *Sdf.Sdf) void {
     gui.ImGui_Text("Smooth");
     gui.ImGui_SameLine();
     gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
-    _ = gui.ImGui_DragFloatEx("##Smoothness", &sdf.smooth_factor, 0.005, 0, 1, "%.2f", 0);
+    _ = gui.ImGui_DragFloatEx("##Smoothness", &sdf.smooth_factor, 0.005, 0, 4, "%.2f", 0);
 }
 
 fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void {

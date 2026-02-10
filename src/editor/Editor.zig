@@ -2,7 +2,8 @@ const std = @import("std");
 const c = @import("c");
 const sdl = c.sdl;
 const gui = c.gui;
-const m = @import("../math.zig").zlm;
+const math = @import("../math.zig");
+const m = math.zlm;
 const theme = @import("theme.zig");
 const State = @import("State.zig");
 const Scene = @import("../Scene.zig");
@@ -127,31 +128,52 @@ pub fn render(self: *Self, pipeline: *Pipeline, scene: *Scene, camera: *const Ca
 }
 
 fn drawBoundingBox(scene: *Scene, camera: *const Camera, vp: Rect) void {
-    const obj = scene.getSelectedSdf() orelse return;
+    const sdf = scene.getSelectedSdf() orelse return;
 
-    if (!obj.visible) {
+    if (!sdf.visible) {
         return;
     }
 
     const proj: Projection = .init(camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
 
-    const aabb = obj.getAABB();
-    const lo = aabb.min;
-    const hi = aabb.max;
+    // Get local AABB (centered at origin), then transform each corner
+    // by scale, rotation, and translation to get a proper OBB.
+    const local_corners = sdf.getLocalAABB().getCorners();
+    const pos = sdf.getPos();
 
-    // Which faces point toward the camera?
-    // For an AABB this is just 6 comparisons — no dot products needed.
-    // The camera sees a face if it's on the "outside" of that face.
-    const face_visible = [6]bool{
-        camera.pos.y < lo.y, // 0: -Y (bottom) — camera is below the box
-        camera.pos.y > hi.y, // 1: +Y (top)    — camera is above
-        camera.pos.x < lo.x, // 2: -X (left)   — camera is to the left
-        camera.pos.x > hi.x, // 3: +X (right)  — camera is to the right
-        camera.pos.z < lo.z, // 4: -Z (back)   — camera is behind
-        camera.pos.z > hi.z, // 5: +Z (front)  — camera is in front
+    var corners_3d: [8]m.Vec3 = undefined;
+    for (0..8) |i| {
+        const scaled = local_corners[i].scale(sdf.scale);
+        corners_3d[i] = math.mulMat4Vec3(scaled, sdf.transform.transpose()).add(pos);
+    }
+
+    // Face visibility via cross-product normals.
+    // Each face is defined by 3 corner indices (a, b, c) such that
+    // (b-a) x (c-a) points outward.
+    //
+    //      4 ────── 5
+    //     /|       /|
+    //    / |      / |
+    //  7 ────── 6   |
+    //  |   0 ───|── 1
+    //  |  /     |  /
+    //  | /      | /
+    //  3 ────── 2
+    const faces = [6][3]u8{
+        .{ 0, 1, 3 }, // 0: -Y (bottom)
+        .{ 4, 7, 5 }, // 1: +Y (top)
+        .{ 0, 3, 4 }, // 2: -X (left)
+        .{ 1, 5, 2 }, // 3: +X (right)
+        .{ 0, 4, 1 }, // 4: -Z (back)
+        .{ 2, 6, 3 }, // 5: +Z (front)
     };
 
-    const corners_3d = aabb.getCorners();
+    var face_visible: [6]bool = undefined;
+    for (faces, 0..) |f, i| {
+        const a = corners_3d[f[0]];
+        const normal = corners_3d[f[1]].sub(a).cross(corners_3d[f[2]].sub(a));
+        face_visible[i] = normal.dot(camera.pos.sub(a)) > 0;
+    }
 
     // Project all 8 corners to screen space
     var corners: [8]?[2]f32 = undefined;

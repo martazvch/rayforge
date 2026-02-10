@@ -32,13 +32,9 @@ const Object = struct {
 };
 
 const Properties = struct {
-    transform: m.Vec3,
-    scale: m.Vec3,
     rotation: m.Vec3,
 
     pub const init: Properties = .{
-        .transform = .zero,
-        .scale = .one,
         .rotation = .zero,
     };
 };
@@ -65,8 +61,8 @@ pub fn getSelectedObj(self: *Self) ?*Object {
 
 pub fn addObject(self: *Self, name: []const u8, kind: sdf.Kind, params: m.Vec4) void {
     self.data.sdfs[self.data.count] = .{
+        .transform = .identity,
         .params = params,
-        .position = .zero,
         .scale = 1,
         .kind = kind,
         .op = if (self.data.count == 0) .none else .union_op,
@@ -126,5 +122,5 @@ pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?usize {
 
 pub fn debug(self: *Self) void {
     self.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
-    self.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
+    self.addObject("Box", .box, .new(1.0, 1.0, 1.0, 0.0));
 }

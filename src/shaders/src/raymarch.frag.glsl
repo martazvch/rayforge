@@ -12,15 +12,14 @@ layout(std140, set = 1, binding = 0) uniform CameraBlock {
 };
 
 struct SDFObject {
+    mat4 transform;
     vec4 params;
-    vec3 position;
-    float scale;
-    uint sdf_type;
-    uint operation;
+    uint kind;
+    uint op;
     float smooth_factor;
-    bool visible;
+    float scale;
     vec3 color;
-    float _pad;
+    bool visible;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
@@ -92,18 +91,20 @@ float intersection(float d1, float d2, float k) {
 }
 
 float evaluateSDF(SDFObject obj, vec3 p) {
-    vec3 local_p = (p - obj.position) / obj.scale;
+    vec3 local_p = mat3(obj.transform) * (p - obj.transform[3].xyz) / obj.scale;
+    // vec3 local_p = (p - obj.transform[3].xyz) / obj.scale;
+    // vec3 local_p = obj.all * (p - obj.all[3].xyz) / obj.scale;
 
-    if (obj.sdf_type == SDF_SPHERE)   return sdSphere(local_p, obj.params.x) * obj.scale;
-    if (obj.sdf_type == SDF_BOX)      return sdBox(local_p, obj.params.xyz, obj.params.w) * obj.scale;
-    if (obj.sdf_type == SDF_CYLINDER) return sdCylinder(local_p, obj.params.xy) * obj.scale;
-    if (obj.sdf_type == SDF_TORUS)    return sdTorus(local_p, obj.params.xy) * obj.scale;
-    return 1000.0;
+    if (obj.kind == SDF_SPHERE)   return sdSphere(local_p, obj.params.x) * obj.scale;
+    if (obj.kind == SDF_BOX)      return sdBox(local_p, obj.params.xyz, obj.params.w) * obj.scale;
+    if (obj.kind == SDF_CYLINDER) return sdCylinder(local_p, obj.params.xy) * obj.scale;
+    if (obj.kind == SDF_TORUS)    return sdTorus(local_p, obj.params.xy) * obj.scale;
+    return 0;
 }
 
 float applyOperation(float d1, float d2, uint op, float k) {
     if (op == OP_UNION)     return unionOp(d1, d2, k);
-    if (op == OP_SUBTRACT)  return subtraction(-d1, d2, k);
+    if (op == OP_SUBTRACT)  return subtraction(d1, d2, k);
     if (op == OP_INTERSECT) return intersection(d1, d2, k);
     // op == none
     return d1;
@@ -124,7 +125,7 @@ SceneInfo getDist(vec3 p) {
         float obj_dist = evaluateSDF(obj, p);
 
         float prev_dist = result_dist;
-        result_dist = applyOperation(obj_dist, result_dist, obj.operation, obj.smooth_factor);
+        result_dist = applyOperation(obj_dist, result_dist, obj.op, obj.smooth_factor);
         
         if (result_dist < prev_dist) {
             index = i;

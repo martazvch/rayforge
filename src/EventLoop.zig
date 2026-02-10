@@ -86,7 +86,7 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
 
             if (event.key.key == sdl.SDLK_F) {
                 if (self.scene.getSelectedSdf()) |sdf| {
-                    self.camera.pivot = sdf.position;
+                    self.camera.pivot = sdf.getPos();
                     self.camera.orbit();
                 }
             }
