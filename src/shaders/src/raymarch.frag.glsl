@@ -12,14 +12,15 @@ layout(std140, set = 1, binding = 0) uniform CameraBlock {
 };
 
 struct SDFObject {
-    vec3 position;
-    uint sdf_type;
     vec4 params;
-    vec3 color;
+    vec3 position;
+    float scale;
+    uint sdf_type;
     uint operation;
     float smooth_factor;
     bool visible;
-    float _pad[2];
+    vec3 color;
+    float _pad;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
@@ -48,6 +49,7 @@ struct SceneInfo {
     uint index;
 };
 
+// Shapes
 float sdSphere(vec3 p, float r) {
     return length(p) - r;
 }
@@ -67,6 +69,7 @@ float sdTorus(vec3 p, vec2 t) {
     return length(q) - t.y;
 }
 
+// Operations
 float unionOp(float d1, float d2, float k) {
     if (k < 0.0001) return min(d1, d2);
 
@@ -89,11 +92,12 @@ float intersection(float d1, float d2, float k) {
 }
 
 float evaluateSDF(SDFObject obj, vec3 p) {
-    vec3 local_p = p - obj.position;
-    if (obj.sdf_type == SDF_SPHERE)   return sdSphere(local_p, obj.params.x);
-    if (obj.sdf_type == SDF_BOX)      return sdBox(local_p, obj.params.xyz, obj.params.w);
-    if (obj.sdf_type == SDF_CYLINDER) return sdCylinder(local_p, obj.params.xy);
-    if (obj.sdf_type == SDF_TORUS)    return sdTorus(local_p, obj.params.xy);
+    vec3 local_p = (p - obj.position) / obj.scale;
+
+    if (obj.sdf_type == SDF_SPHERE)   return sdSphere(local_p, obj.params.x) * obj.scale;
+    if (obj.sdf_type == SDF_BOX)      return sdBox(local_p, obj.params.xyz, obj.params.w) * obj.scale;
+    if (obj.sdf_type == SDF_CYLINDER) return sdCylinder(local_p, obj.params.xy) * obj.scale;
+    if (obj.sdf_type == SDF_TORUS)    return sdTorus(local_p, obj.params.xy) * obj.scale;
     return 1000.0;
 }
 

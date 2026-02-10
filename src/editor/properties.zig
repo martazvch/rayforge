@@ -19,8 +19,12 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     const obj = scene.getSelectedObj() orelse return;
 
     vec3Edit("Transform", &sdf.position, 0.05, 0, 0, "%.2f");
-    vec3Edit("Scale", &obj.properties.scale, 0.05, 0.01, 100.0, "%.2f");
+    // vec3Edit("Scale", &obj.properties.scale, 0.05, 0.01, 100.0, "%.2f");
     vec3Edit("Rotation", &obj.properties.rotation, 0.5, -360.0, 360.0, "%.1f");
+
+    gui.ImGui_SeparatorText("Scale");
+    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
+    _ = gui.ImGui_DragFloatEx("##Scale", &sdf.scale, 0.01, 0.01, 100, "%.2f", 0);
 
     operations(sdf);
     material(sdf);
@@ -60,6 +64,7 @@ fn operations(sdf: *Sdf.Sdf) void {
     gui.ImGui_AlignTextToFramePadding();
     gui.ImGui_Text("Smooth");
     gui.ImGui_SameLine();
+    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
     _ = gui.ImGui_DragFloatEx("##Smoothness", &sdf.smooth_factor, 0.005, 0, 1, "%.2f", 0);
 }
 

@@ -65,13 +65,14 @@ pub fn getSelectedObj(self: *Self) ?*Object {
 
 pub fn addObject(self: *Self, name: []const u8, kind: sdf.Kind, params: m.Vec4) void {
     self.data.sdfs[self.data.count] = .{
-        .position = .zero,
-        .kind = kind,
         .params = params,
-        .color = .new(1.0, 1.0, 1.0),
+        .position = .zero,
+        .scale = 1,
+        .kind = kind,
         .op = if (self.data.count == 0) .none else .union_op,
         .smooth_factor = 0.5,
         .visible = true,
+        .color = .new(1.0, 1.0, 1.0),
     };
     self.objects[self.data.count] = .{
         .index = self.data.count,

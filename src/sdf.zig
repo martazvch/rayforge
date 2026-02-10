@@ -16,9 +16,6 @@ pub const Op = enum(u32) {
 };
 
 pub const Sdf = extern struct {
-    position: m.Vec3,
-    kind: Kind,
-
     /// Sphere
     ///  x: radius
     /// Box
@@ -33,12 +30,16 @@ pub const Sdf = extern struct {
     ///  y: minor radius
     params: m.Vec4,
 
-    color: m.Vec3,
-    op: Op,
+    position: m.Vec3,
+    scale: f32,
 
+    kind: Kind,
+    op: Op,
     smooth_factor: f32,
     visible: bool,
-    _pad: [2]f32 = undefined,
+
+    color: m.Vec3,
+    _pad: f32 = undefined,
 
     pub fn evaluateSDF(self: *const Sdf, p: m.Vec3) f32 {
         // Local position
