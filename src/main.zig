@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const c = @import("c");
 const sdl = c.sdl;
 const m = @import("math.zig").math;
@@ -6,6 +7,8 @@ const App = @import("App.zig");
 const fatal = @import("utils.zig").fatal;
 
 var app: App = undefined;
+var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
+var is_debug: bool = false;
 
 pub fn main() !u8 {
     app_err.reset();
@@ -22,8 +25,15 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl.SDL_AppResult {
     _ = appstate;
     _ = argv;
 
-    // TODO: mamange allocation
-    app = .init(std.heap.smp_allocator);
+    const allocator, const dbg = gpa: {
+        break :gpa switch (builtin.mode) {
+            .Debug, .ReleaseSafe => .{ debug_allocator.allocator(), true },
+            .ReleaseFast, .ReleaseSmall => .{ std.heap.smp_allocator, false },
+        };
+    };
+    is_debug = dbg;
+
+    app = .init(allocator);
     app.bind();
 
     return sdl.SDL_APP_CONTINUE;
@@ -52,6 +62,10 @@ fn sdlAppQuit(appstate: ?*anyopaque, result: anyerror!sdl.SDL_AppResult) void {
     }
 
     app.deinit();
+
+    if (is_debug) {
+        std.debug.assert(debug_allocator.deinit() == .ok);
+    }
 }
 
 fn sdlAppInitC(appstate: ?*?*anyopaque, argc: c_int, argv: ?[*:null]?[*:0]u8) callconv(.c) sdl.SDL_AppResult {

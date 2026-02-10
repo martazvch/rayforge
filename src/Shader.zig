@@ -62,6 +62,7 @@ fn createShader(device: *sdl.SDL_GPUDevice, allocator: Allocator, comptime name:
     const info = std.json.parseFromSlice(ShaderInfo, allocator, json, .{ .allocate = .alloc_if_needed }) catch {
         fatal("Unable to fetch metadata for shader at: {s}", .{json_path});
     };
+    defer info.deinit();
 
     var shader_info: sdl.SDL_GPUShaderCreateInfo = .{
         .code = code,

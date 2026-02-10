@@ -68,9 +68,9 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
                 const ray = self.camera.screenToRay(x, y, self.viewport.rect.size);
 
                 if (self.scene.raymarch(ray.ro, ray.rd)) |hit| {
-                    self.scene.selected = hit;
+                    self.scene.selected_sdf = hit;
                 } else {
-                    self.scene.selected = null;
+                    self.scene.selected_sdf = null;
                 }
             }
         },

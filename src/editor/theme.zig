@@ -1,5 +1,6 @@
 const std = @import("std");
 const gui = @import("c").gui;
+const math = @import("../math.zig");
 
 pub fn applyTheme() void {
     const style: *gui.ImGuiStyle_t = gui.ImGui_GetStyle();
@@ -74,7 +75,7 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_ChildBg] = bg_medium;
     colors[gui.ImGuiCol_PopupBg] = bg_dark;
     colors[gui.ImGuiCol_Border] = border;
-    colors[gui.ImGuiCol_BorderShadow] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
+    colors[gui.ImGuiCol_BorderShadow] = math.guiVec4Zero;
     colors[gui.ImGuiCol_FrameBg] = bg_medium;
     colors[gui.ImGuiCol_FrameBgHovered] = bg_light;
     colors[gui.ImGuiCol_FrameBgActive] = .{ .x = 0.2, .y = 0.2, .z = 0.25, .w = 1 };
@@ -89,12 +90,12 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_CheckMark] = accent_purple;
     colors[gui.ImGuiCol_SliderGrab] = accent_purple;
     colors[gui.ImGuiCol_SliderGrabActive] = accent_blue;
-    colors[gui.ImGuiCol_Button] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
-    colors[gui.ImGuiCol_ButtonHovered] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
-    colors[gui.ImGuiCol_ButtonActive] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
+    colors[gui.ImGuiCol_Button] = math.guiVec4Zero;
+    colors[gui.ImGuiCol_ButtonHovered] = math.guiVec4Zero;
+    colors[gui.ImGuiCol_ButtonActive] = math.guiVec4Zero;
     colors[gui.ImGuiCol_Header] = bg_light;
     colors[gui.ImGuiCol_HeaderHovered] = .{ .x = 0.25, .y = 0.25, .z = 0.32, .w = 1 };
-    colors[gui.ImGuiCol_HeaderActive] = accent_purple_dim;
+    colors[gui.ImGuiCol_HeaderActive] = math.guiVec4Zero;
     colors[gui.ImGuiCol_Separator] = border;
     colors[gui.ImGuiCol_SeparatorHovered] = accent_purple_dim;
     colors[gui.ImGuiCol_SeparatorActive] = accent_purple;
@@ -115,7 +116,7 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_TableHeaderBg] = bg_medium;
     colors[gui.ImGuiCol_TableBorderStrong] = border;
     colors[gui.ImGuiCol_TableBorderLight] = .{ .x = 0.2, .y = 0.2, .z = 0.25, .w = 1 };
-    colors[gui.ImGuiCol_TableRowBg] = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
+    colors[gui.ImGuiCol_TableRowBg] = math.guiVec4Zero;
     colors[gui.ImGuiCol_TableRowBgAlt] = .{ .x = 1, .y = 1, .z = 1, .w = 0.03 };
     colors[gui.ImGuiCol_TextSelectedBg] = accent_purple_dim;
     colors[gui.ImGuiCol_DragDropTarget] = accent_blue;

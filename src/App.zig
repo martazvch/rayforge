@@ -20,7 +20,7 @@ const Self = @This();
 pub fn init(allocator: Allocator) Self {
     return .{
         .pipeline = .init(allocator),
-        .scene = .init(),
+        .scene = .init(allocator),
         .event_loop = .init(),
         .editor = undefined,
         .camera = .init(),
@@ -30,11 +30,13 @@ pub fn init(allocator: Allocator) Self {
 pub fn deinit(self: *Self) void {
     self.editor.deinit();
     self.pipeline.deinit();
+    self.scene.deinit();
 }
 
 /// Binds several part of the software together
 pub fn bind(self: *Self) void {
     self.editor = .init(self.pipeline.device, self.pipeline.window);
+    self.scene.createAlloc();
     self.scene.debug();
     self.event_loop.bind(&self.scene, &self.camera, &self.editor.viewport);
 

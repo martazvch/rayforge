@@ -16,16 +16,16 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     if (!gui.ImGui_Begin("Properties", null, flags)) return;
 
     const sdf = scene.getSelectedSdf() orelse return;
-    const obj = scene.getSelectedObj() orelse return;
+    const meta = scene.getSelectedSdfMeta() orelse return;
 
     var pos: m.Vec3 = sdf.getPos();
     vec3Edit("Transform", &pos, 0.05, 0, 0, "%.2f");
 
-    vec3Edit("Rotation", &obj.properties.rotation, 0.5, -360.0, 360.0, "%.1f");
+    vec3Edit("Rotation", &meta.rotation, 0.5, -360.0, 360.0, "%.1f");
 
-    sdf.transform = m.Mat4.createAngleAxis(.unitX, m.toRadians(obj.properties.rotation.x))
-        .mul(.createAngleAxis(.unitY, m.toRadians(obj.properties.rotation.y)))
-        .mul(.createAngleAxis(.unitZ, m.toRadians(obj.properties.rotation.z)))
+    sdf.transform = m.Mat4.createAngleAxis(.unitX, m.toRadians(meta.rotation.x))
+        .mul(.createAngleAxis(.unitY, m.toRadians(meta.rotation.y)))
+        .mul(.createAngleAxis(.unitZ, m.toRadians(meta.rotation.z)))
         .transpose();
 
     sdf.transform.fields[3][0] = pos.x;
@@ -44,6 +44,9 @@ fn resetableDragFloat(id: [*c]const u8, prop: *f32, speed: f32, min: f32, max: f
     _ = gui.ImGui_DragFloatEx(id, prop, speed, min, max, fmt, 0);
 
     if (reset_offset > 0) {
+        gui.ImGui_PushID(id);
+        defer gui.ImGui_PopID();
+
         gui.ImGui_SameLine();
         if (gui.ImGui_ImageButton("reset", icons.reset.toImGuiRef(), .{ .x = icons.size, .y = icons.size })) {
             prop.* = reset_val;

@@ -156,27 +156,19 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
     var panel_x = work_pos.x + viewport_width;
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = properties_width, .y = panel_height }, gui.ImGuiCond_Always);
-    // gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_WindowPadding, .{ .x = 8, .y = 8 });
     Properties.render(scene, panel_flags);
-    // gui.ImGui_PopStyleVar();
 
     // Scene panel
     panel_x = work_pos.x + viewport_width + properties_width;
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = scene_width, .y = scene_h }, gui.ImGuiCond_Always);
-    // gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_WindowPadding, .{ .x = 8, .y = 8 });
     SceneTree.render(scene, panel_flags);
-    // if (gui.ImGui_Begin("Scene", null, panel_flags)) {}
-    // gui.ImGui_End();
-    // gui.ImGui_PopStyleVar();
 
     // Chunks panel
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y + scene_h }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = scene_width, .y = panel_height - scene_h }, gui.ImGuiCond_Always);
-    // gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_WindowPadding, .{ .x = 8, .y = 8 });
-    if (gui.ImGui_Begin("Chunks", null, panel_flags)) {}
+    if (gui.ImGui_Begin("Modifiers", null, panel_flags)) {}
     gui.ImGui_End();
-    // gui.ImGui_PopStyleVar();
 
     // Handle splitters and draw borders
     handleSplitters(work_pos, work_size, viewport_width, properties_width, scene_width, panel_y, panel_height, scene_h);

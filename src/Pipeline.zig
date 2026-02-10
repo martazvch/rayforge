@@ -98,7 +98,7 @@ pub fn init(allocator: Allocator) Self {
     const scene_buffer = sdl.SDL_CreateGPUBuffer(
         device,
         &.{
-            .size = @sizeOf(Scene.Data),
+            .size = @sizeOf(Scene.ShaderSdfData),
             .usage = sdl.SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
         },
     ) orelse {
@@ -133,7 +133,7 @@ pub fn init(allocator: Allocator) Self {
     const scene_trans_buffer = sdl.SDL_CreateGPUTransferBuffer(
         device,
         &.{
-            .size = @sizeOf(Scene.Data),
+            .size = @sizeOf(Scene.ShaderSdfData),
             .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
         },
     ) orelse {
@@ -333,9 +333,9 @@ pub fn frame(
         const data_ptr = sdl.SDL_MapGPUTransferBuffer(self.device, self.scene_trans_buffer, false) orelse {
             fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
         };
-        const src_bytes = @as([*]const u8, @ptrCast(&scene.data));
+        const src_bytes = @as([*]const u8, @ptrCast(&scene.shader_data));
         const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
-        @memcpy(dst_bytes[0..@sizeOf(Scene.Data)], src_bytes[0..@sizeOf(Scene.Data)]);
+        @memcpy(dst_bytes[0..@sizeOf(Scene.ShaderSdfData)], src_bytes[0..@sizeOf(Scene.ShaderSdfData)]);
 
         sdl.SDL_UnmapGPUTransferBuffer(self.device, self.scene_trans_buffer);
 
@@ -348,7 +348,7 @@ pub fn frame(
             },
             &.{
                 .buffer = self.scene_buffer,
-                .size = @sizeOf(Scene.Data),
+                .size = @sizeOf(Scene.ShaderSdfData),
                 .offset = 0,
             },
             true,
@@ -488,11 +488,11 @@ var debug_logged: bool = false;
 fn updateSceneBuffer(self: *Self, scene: *const Scene) void {
     if (!debug_logged) {
         debug_logged = true;
-        std.debug.print("DEBUG: Scene.Data size = {}\n", .{@sizeOf(Scene.Data)});
+        std.debug.print("DEBUG: Scene.Data size = {}\n", .{@sizeOf(Scene.ShaderSdfData)});
         std.debug.print("DEBUG: SDFObject size = {}\n", .{@sizeOf(Scene.SDFObject)});
-        std.debug.print("DEBUG: object_count = {}\n", .{scene.data.count});
+        std.debug.print("DEBUG: object_count = {}\n", .{scene.shader_data.count});
         std.debug.print("DEBUG: First 32 bytes: ", .{});
-        const bytes = @as([*]const u8, @ptrCast(&scene.data));
+        const bytes = @as([*]const u8, @ptrCast(&scene.shader_data));
         for (0..32) |i| {
             std.debug.print("{x:0>2} ", .{bytes[i]});
         }
@@ -502,9 +502,9 @@ fn updateSceneBuffer(self: *Self, scene: *const Scene) void {
     const data_ptr = sdl.SDL_MapGPUTransferBuffer(self.device, self.scene_trans_buffer, false) orelse {
         fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
     };
-    const src_bytes = @as([*]const u8, @ptrCast(&scene.data));
+    const src_bytes = @as([*]const u8, @ptrCast(&scene.shader_data));
     const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
-    @memcpy(dst_bytes[0..@sizeOf(Scene.Data)], src_bytes[0..@sizeOf(Scene.Data)]);
+    @memcpy(dst_bytes[0..@sizeOf(Scene.ShaderSdfData)], src_bytes[0..@sizeOf(Scene.ShaderSdfData)]);
 
     sdl.SDL_UnmapGPUTransferBuffer(self.device, self.scene_trans_buffer);
 }
