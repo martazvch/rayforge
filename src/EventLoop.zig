@@ -1,7 +1,7 @@
 const std = @import("std");
 const c = @import("c");
 const sdl = c.sdl;
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 const Camera = @import("Camera.zig");
 const Scene = @import("Scene.zig");
 const Viewport = @import("editor/Viewport.zig");
@@ -69,8 +69,6 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
 
                 if (self.scene.raymarch(ray.ro, ray.rd)) |hit| {
                     self.scene.selected = hit;
-                    self.camera.pivot = self.scene.data.sdfs[hit].position;
-                    self.camera.orbit();
                 } else {
                     self.scene.selected = null;
                 }
@@ -84,6 +82,13 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
         sdl.SDL_EVENT_KEY_DOWN => {
             if (event.key.key == sdl.SDLK_ESCAPE) {
                 return sdl.SDL_APP_SUCCESS;
+            }
+
+            if (event.key.key == sdl.SDLK_F) {
+                if (self.scene.getSelectedSdf()) |sdf| {
+                    self.camera.pivot = sdf.position;
+                    self.camera.orbit();
+                }
             }
 
             if (event.key.key == sdl.SDLK_LSHIFT or event.key.key == sdl.SDLK_RSHIFT) {
