@@ -1,4 +1,4 @@
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 
 min: m.Vec3,
 max: m.Vec3,

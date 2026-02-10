@@ -1,4 +1,4 @@
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 const Aabb = @import("Aabb.zig");
 
 pub const Kind = enum(u32) {
@@ -13,9 +13,6 @@ pub const Op = enum(u32) {
     union_op,
     subtract,
     intersect,
-    smooth_union,
-    smooth_subtract,
-    smooth_intersect,
 };
 
 pub const Sdf = extern struct {

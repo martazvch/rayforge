@@ -1,6 +1,7 @@
 const c = @import("c");
 const gui = c.gui;
-const m = @import("../math.zig").math;
+const math = @import("../math.zig");
+const m = math.zlm;
 const Sdf = @import("../sdf.zig");
 const Scene = @import("../Scene.zig");
 const Texture = @import("../Texture.zig");
@@ -9,6 +10,7 @@ const icons = @import("../icons.zig");
 const axis_labels = [3][*c]const u8{ "x", "y", "z" };
 const axis_drag_ids = [3][*c]const u8{ "##x", "##y", "##z" };
 
+const std = @import("std");
 pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     defer gui.ImGui_End();
     if (!gui.ImGui_Begin("Properties", null, flags)) return;
@@ -21,11 +23,7 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     vec3Edit("Rotation", &obj.properties.rotation, 0.5, -360.0, 360.0, "%.1f");
 
     operations(sdf);
-
-    gui.ImGui_AlignTextToFramePadding();
-    gui.ImGui_Text("Smooth");
-    gui.ImGui_SameLine();
-    _ = gui.ImGui_DragFloatEx("##Smoothness", &sdf.smooth_factor, 0.005, 0, 1, "%.2f", 0);
+    material(sdf);
 }
 
 fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fmt: [*:0]const u8) void {
@@ -58,13 +56,18 @@ fn operations(sdf: *Sdf.Sdf) void {
     operation("subtract", icons.subtract_op, sdf, .subtract);
     gui.ImGui_SameLine();
     operation("intersect", icons.intersect_op, sdf, .intersect);
+
+    gui.ImGui_AlignTextToFramePadding();
+    gui.ImGui_Text("Smooth");
+    gui.ImGui_SameLine();
+    _ = gui.ImGui_DragFloatEx("##Smoothness", &sdf.smooth_factor, 0.005, 0, 1, "%.2f", 0);
 }
 
 fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void {
     const tint: gui.ImVec4 = if (sdf.op == op)
         .{ .x = 0.078, .y = 0.565, .z = 0.549, .w = 1 }
     else
-        .{ .x = 1, .y = 1, .z = 1, .w = 1 };
+        math.guiVec4One;
 
     if (gui.ImGui_ImageButtonEx(
         name,
@@ -72,9 +75,30 @@ fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void 
         .{ .x = icons.size, .y = icons.size },
         .{ .x = 0, .y = 0 },
         .{ .x = 1, .y = 1 },
-        .{ .x = 0, .y = 0, .z = 0, .w = 0 },
+        math.guiVec4Zero,
         tint,
     )) {
         sdf.op = op;
+    }
+}
+
+var picker_openned: bool = false;
+
+fn material(sdf: *Sdf.Sdf) void {
+    gui.ImGui_SeparatorText("Material");
+
+    if (!picker_openned) {
+        if (gui.ImGui_ColorButton("##color", math.zlmToImGui(math.extendVec3(sdf.color, 1)), 0)) {
+            picker_openned = true;
+        }
+    } else {
+        if (gui.ImGui_ColorPicker3("picker", &sdf.color.x, 0)) {
+            //
+        }
+
+        // if (!gui.ImGui_IsItemHovered(0) and gui.ImGui_IsMouseClickedEx(gui.ImGuiMouseButton_Left, false)) {
+        if (!gui.ImGui_IsItemHovered(0)) {
+            picker_openned = false;
+        }
     }
 }

@@ -1,4 +1,4 @@
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 const d2r = m.toRadians;
 
 pos: m.Vec3,

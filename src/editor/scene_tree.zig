@@ -1,5 +1,6 @@
 const c = @import("c");
 const gui = c.gui;
+const math = @import("../math.zig");
 const Scene = @import("../Scene.zig");
 const icons = @import("../icons.zig");
 
@@ -15,7 +16,7 @@ fn header(scene: *Scene) void {
     gui.ImGui_Text("Objects");
     gui.ImGui_SameLine();
 
-    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Button, .{ .x = 0, .y = 0, .z = 0, .w = 0 });
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Button, math.guiVec4Zero);
     if (gui.ImGui_Button("+")) {
         gui.ImGui_OpenPopup("AddObjectPopup", 0);
     }

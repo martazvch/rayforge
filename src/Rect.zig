@@ -1,4 +1,4 @@
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 
 pos: m.Vec2,
 size: m.Vec2,

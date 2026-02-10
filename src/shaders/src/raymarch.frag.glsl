@@ -42,13 +42,10 @@ layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
 #define OP_UNION 1
 #define OP_SUBTRACT 2
 #define OP_INTERSECT 3
-#define OP_SMOOTH_UNION 4
-#define OP_SMOOTH_SUBTRACT 5
-#define OP_SMOOTH_INTERSECT 6
 
 struct SceneInfo {
     float dist;
-    int material;
+    uint index;
 };
 
 float sdSphere(vec3 p, float r) {
@@ -70,17 +67,23 @@ float sdTorus(vec3 p, vec2 t) {
     return length(q) - t.y;
 }
 
-float smoothUnion(float d1, float d2, float k) {
+float unionOp(float d1, float d2, float k) {
+    if (k < 0.0001) return min(d1, d2);
+
     float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
     return mix(d2, d1, h) - k * h * (1.0 - h);
 }
 
-float smoothSubtraction(float d1, float d2, float k) {
+float subtraction(float d1, float d2, float k) {
+    if (k < 0.0001) return max(-d1, d2);
+
     float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0.0, 1.0);
     return mix(d2, -d1, h) + k * h * (1.0 - h);
 }
 
-float smoothIntersection(float d1, float d2, float k) {
+float intersection(float d1, float d2, float k) {
+    if (k < 0.0001) return max(d1, d2);
+
     float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
     return mix(d2, d1, h) + k * h * (1.0 - h);
 }
@@ -95,27 +98,18 @@ float evaluateSDF(SDFObject obj, vec3 p) {
 }
 
 float applyOperation(float d1, float d2, uint op, float k) {
-    if (op == OP_UNION)            return min(d1, d2);
-    if (op == OP_SUBTRACT)         return max(-d1, d2);
-    if (op == OP_INTERSECT)        return max(d1, d2);
-    if (op == OP_SMOOTH_UNION)     return smoothUnion(d1, d2, k);
-    if (op == OP_SMOOTH_SUBTRACT)  return smoothSubtraction(d1, d2, k);
-    if (op == OP_SMOOTH_INTERSECT) return smoothIntersection(d1, d2, k);
-    return d2;
-}
-
-vec3 getObjectColor(int material) {
-    int obj_index = material - 1;
-    if (obj_index >= 0 && obj_index < int(object_count)) {
-        return objects[obj_index].color;
-    }
-    return vec3(0.7);
+    if (op == OP_UNION)     return unionOp(d1, d2, k);
+    if (op == OP_SUBTRACT)  return subtraction(-d1, d2, k);
+    if (op == OP_INTERSECT) return intersection(d1, d2, k);
+    // op == none
+    return d1;
 }
 
 SceneInfo getDist(vec3 p) {
     float result_dist = MAX_DIST;
-    int result_mat = -1;
+    uint index = 0;
 
+    // TODO: condition on 128 could be CPU side
     for (uint i = 0; i < object_count && i < 128; ++i) {
         SDFObject obj = objects[i];
 
@@ -125,19 +119,15 @@ SceneInfo getDist(vec3 p) {
 
         float obj_dist = evaluateSDF(obj, p);
 
-        if (i == 0 && obj.operation == OP_NONE) {
-            result_dist = obj_dist;
-            result_mat = int(i + 1);
-        } else {
-            float prev_dist = result_dist;
-            result_dist = applyOperation(obj_dist, result_dist, obj.operation, obj.smooth_factor);
-            if (result_dist == obj_dist || (obj.operation == OP_SMOOTH_UNION && obj_dist < prev_dist)) {
-                result_mat = int(i + 1);
-            }
+        float prev_dist = result_dist;
+        result_dist = applyOperation(obj_dist, result_dist, obj.operation, obj.smooth_factor);
+        
+        if (result_dist < prev_dist) {
+            index = i;
         }
     }
 
-    return SceneInfo(result_dist, result_mat);
+    return SceneInfo(result_dist, index);
 }
 
 // https://iquilezles.org/articles/normalsSDF/
@@ -154,17 +144,17 @@ vec3 getNormal(vec3 p) {
 
 SceneInfo rayMarch(vec3 ro, vec3 rd, float maxDist) {
     float dO = 0.0;
-    int material = -1;
+    uint index = 0;
 
     for (int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + rd * dO;
         SceneInfo info = getDist(p);
         dO += info.dist;
-        material = info.material;
+        index = info.index;
         if (dO > maxDist || abs(info.dist) < SURF_DIST) break;
     }
 
-    return SceneInfo(dO, material);
+    return SceneInfo(dO, index);
 }
 
 // Marches from the point where light is casted to the light source
@@ -310,7 +300,8 @@ void main() {
     if (info.dist < MAX_DIST) {
         vec3 p = ro + rd * info.dist;
         float light = getLight(p);
-        vec3 baseColor = getObjectColor(info.material);
+        vec3 baseColor = objects[info.index].color;
+
         col = baseColor * light + baseColor * 0.1;
         // Ambient occlusion
         col += vec3(0.03, 0.03, 0.05);

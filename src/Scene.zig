@@ -1,6 +1,6 @@
 const c = @import("c");
 const sdl = c.sdl;
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 const Camera = @import("Camera.zig");
 const sdf = @import("sdf.zig");
 const Sdf = sdf.Sdf;
@@ -126,25 +126,4 @@ pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?usize {
 pub fn debug(self: *Self) void {
     self.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
     self.addObject("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
-
-    // self.data.sdfs[0] = .{
-    //     .position = .new(0.0, 2.0, -5.0),
-    //     .kind = .sphere,
-    //     .params = .new(1.0, 0.0, 0.0, 0.0), // Radius 1
-    //     .color = .new(1.0, 1.0, 1.0),
-    //     .op = .none, // First object should use none
-    //     .smooth_factor = 0.0,
-    // };
-    // self.data.count += 1;
-
-    // self.data.objects[1] = .{
-    //     .position = .new(1.0, 1.0, -5.0),
-    //     .sdf_type = @intFromEnum(Type.box),
-    //     .params = .new(0.8, 0.8, 0.8, 0.0), // Half-extents of 0.8
-    //     // .color = .new(0.0, 1.0, 0.0),
-    //     .color = .new(1.0, 1.0, 1.0),
-    //     .operation = @intFromEnum(Op.smooth_union), // Union with previous objects
-    //     .smooth_factor = 0.8,
-    // };
-    // self.data.object_count += 1;
 }

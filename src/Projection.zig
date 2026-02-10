@@ -1,5 +1,5 @@
 const gui = @import("c").gui;
-const m = @import("math.zig").math;
+const m = @import("math.zig").zlm;
 const Camera = @import("Camera.zig");
 const Sdf = @import("sdf.zig").Sdf;
 
