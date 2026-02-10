@@ -19,6 +19,10 @@ pub var cube: Texture = undefined;
 pub var cylinder: Texture = undefined;
 pub var torus: Texture = undefined;
 
+pub var object: Texture = undefined;
+
+pub var reset: Texture = undefined;
+
 pub fn init(device: *sdl.SDL_GPUDevice) void {
     eye = .load(device, folder ++ "eye.png");
     eye_closed = .load(device, folder ++ "eye-closed.png");
@@ -33,4 +37,7 @@ pub fn init(device: *sdl.SDL_GPUDevice) void {
     cube = .load(device, folder ++ "cube.png");
     cylinder = .load(device, folder ++ "cylinder.png");
     torus = .load(device, folder ++ "torus.png");
+
+    object = .load(device, folder ++ "object.png");
+    reset = .load(device, folder ++ "reset.png");
 }

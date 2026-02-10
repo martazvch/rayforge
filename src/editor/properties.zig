@@ -37,7 +37,21 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     material(sdf);
 }
 
-fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fmt: [*:0]const u8) void {
+fn resetableDragFloat(id: [*c]const u8, prop: *f32, speed: f32, min: f32, max: f32, fmt: [*c]const u8, reset_val: f32) void {
+    const reset_offset: f32 = if (prop.* != reset_val) 30 else 0;
+
+    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x - reset_offset);
+    _ = gui.ImGui_DragFloatEx(id, prop, speed, min, max, fmt, 0);
+
+    if (reset_offset > 0) {
+        gui.ImGui_SameLine();
+        if (gui.ImGui_ImageButton("reset", icons.reset.toImGuiRef(), .{ .x = icons.size, .y = icons.size })) {
+            prop.* = reset_val;
+        }
+    }
+}
+
+fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fmt: [*c]const u8) void {
     gui.ImGui_SeparatorText(id);
 
     gui.ImGui_PushID(id);
@@ -53,15 +67,13 @@ fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fm
         gui.ImGui_Text(axis_labels[i]);
 
         gui.ImGui_SameLine();
-        gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
-        _ = gui.ImGui_DragFloatEx(axis_drag_ids[i], components[i], speed, v_min, v_max, fmt, 0);
+        resetableDragFloat(axis_drag_ids[i], components[i], speed, v_min, v_max, fmt, 0);
     }
 }
 
 fn scale(sdf: *Sdf.Sdf) void {
     gui.ImGui_SeparatorText("Scale");
-    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
-    _ = gui.ImGui_DragFloatEx("##Scale", &sdf.scale, 0.01, 0.01, 100, "%.2f", 0);
+    resetableDragFloat("##Scale", &sdf.scale, 0.01, 0.01, 100, "%.2f", 1);
 }
 
 fn operations(sdf: *Sdf.Sdf) void {
@@ -77,8 +89,7 @@ fn operations(sdf: *Sdf.Sdf) void {
     gui.ImGui_AlignTextToFramePadding();
     gui.ImGui_Text("Smooth");
     gui.ImGui_SameLine();
-    gui.ImGui_SetNextItemWidth(gui.ImGui_GetContentRegionAvail().x);
-    _ = gui.ImGui_DragFloatEx("##Smoothness", &sdf.smooth_factor, 0.005, 0, 4, "%.2f", 0);
+    resetableDragFloat("##Smoothness", &sdf.smooth_factor, 0.005, 0, 4, "%.2f", 0.5);
 }
 
 fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void {
