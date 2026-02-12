@@ -50,7 +50,7 @@ pub const Sdf = extern struct {
 
         return switch (self.kind) {
             .sphere => sdSphere(lp, self.params.x),
-            .box => sdBox(lp, .{ .x = self.params.x, .y = self.params.y, .z = self.params.z }, self.params.z),
+            .box => sdBox(lp, .{ .x = self.params.x, .y = self.params.y, .z = self.params.z }, self.params.w),
             .cylinder => sdCylinder(lp, .{ .x = self.params.x, .y = self.params.y }),
             .torus => sdTorus(lp, .{ .x = self.params.x, .y = self.params.y }),
         };
