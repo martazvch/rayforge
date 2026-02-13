@@ -163,7 +163,7 @@ fn material(sdf: *Sdf.Sdf) void {
     if (!category("Material")) return;
 
     if (!picker_openned) {
-        if (gui.ImGui_ColorButton("##color", math.zlmToImGui(math.extendVec3(sdf.color, 1)), 0)) {
+        if (gui.ImGui_ColorButton("##color", math.zlmVec4ToImGui(math.extendVec3(sdf.color, 1)), 0)) {
             picker_openned = true;
         }
     } else {

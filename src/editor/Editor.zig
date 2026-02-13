@@ -107,6 +107,7 @@ pub fn render(self: *Self) void {
 
     // Selected object
     drawBoundingBox(self.viewport.rect);
+    drawGuizmo(self.viewport.rect);
 
     gui.ImGui_Render();
 
@@ -124,13 +125,35 @@ pub fn render(self: *Self) void {
     globals.event_loop.setViewportState(self.viewport.rect.isIn(mouse_pos.x, mouse_pos.y));
 }
 
+fn drawGuizmo(vp: Rect) void {
+    const axis_len = 2;
+    const drawlist = gui.ImGui_GetForegroundDrawList();
+
+    const proj: Projection = .init(&globals.camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
+    const sdf = globals.scene.getSelectedSdf() orelse return;
+    const pos = sdf.getPos();
+    const pos_proj = proj.worldToScreen(pos).?;
+    const start: gui.ImVec2 = .{ .x = pos_proj[0], .y = pos_proj[1] };
+
+    // const pos_proj_vec_bot: gui.ImVec2 = .{ .x = pos_proj[0], .y = pos_proj[1] + 50 };
+
+    for (
+        [_]m.Vec3{ .unitX, .unitY, .unitZ },
+        [_]u32{ 0xFF0000FF, 0x00FF00FF, 0x0000FFFF },
+    ) |unit_axis, color| {
+        const axis = unit_axis.scale(axis_len);
+
+        const end_pos = math.mulMat4Vec3(pos.add(axis), sdf.transform.transpose());
+        const end_proj = proj.worldToScreen(end_pos).?;
+        const end: gui.ImVec2 = .{ .x = end_proj[0], .y = end_proj[1] };
+        std.log.debug("End: {any}", .{end});
+        gui.ImDrawList_AddLine(drawlist, start, end, color);
+    }
+    std.log.debug("----", .{});
+}
+
 fn drawBoundingBox(vp: Rect) void {
     const sdf = globals.scene.getSelectedSdf() orelse return;
-
-    if (!sdf.visible) {
-        return;
-    }
-
     const proj: Projection = .init(&globals.camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
 
     // Get local AABB (centered at origin), then transform each corner

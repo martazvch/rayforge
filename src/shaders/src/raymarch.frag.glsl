@@ -149,17 +149,6 @@ SceneInfo getDist(vec3 p) {
         if (group_dist < prev) {
             group_index = i;
         }
-
-        // if (obj.obj_id == obj_id) {
-        //     float prev_dist = result_dist;
-        //     result_dist = applyOperation(d, result_dist, obj.op, obj.smooth_factor);
-        //     if (result_dist < prev_dist) {
-        //         index = i;
-        //     }
-        // } else if (d < result_dist) {
-        //     obj_id = obj.obj_id;
-        //     index = i;
-        // }
     }
 
     // Finalize last group

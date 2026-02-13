@@ -4,7 +4,11 @@ const gui = @import("c").gui;
 pub const guiVec4Zero: gui.ImVec4 = .{ .x = 0, .y = 0, .z = 0, .w = 0 };
 pub const guiVec4One: gui.ImVec4 = .{ .x = 1, .y = 1, .z = 1, .w = 1 };
 
-pub fn zlmToImGui(v: zlm.Vec4) gui.ImVec4 {
+pub fn zlmVec4ToImGui(v: zlm.Vec4) gui.ImVec4 {
+    return @bitCast(v);
+}
+
+pub fn zlmVec2ToImGui(v: zlm.Vec2) gui.ImVec2 {
     return @bitCast(v);
 }
 

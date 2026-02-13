@@ -112,15 +112,13 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
         }
     }
 
-    // Drop target: objects accept reparenting, leaves accept reordering
+    // Objects accept reparenting and leaves accept reordering
     if (gui.ImGui_BeginDragDropTarget()) {
         if (gui.ImGui_AcceptDragDropPayload("SCENE_NODE", 0)) |payload| {
             const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
             if (!is_leaf) {
-                // Dropping onto an object: reparent into it
                 scene.reparent(source_id.*, id);
             } else {
-                // Dropping onto a leaf: reorder within same parent
                 const source_node = scene.getNode(source_id.*);
                 if (source_node.parent != null and node.parent != null and source_node.parent.? == node.parent.?) {
                     scene.reorder(node.parent.?, source_id.*, id);

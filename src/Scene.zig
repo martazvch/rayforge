@@ -178,6 +178,11 @@ pub fn getNode(self: *Self, id: Node.Id) *Node {
     return &self.nodes.items[id.toInt()];
 }
 
+fn getShaderSdfFromIndex(self: *Self, id: Node.Id) *Sdf {
+    const node = self.nodeKind(id).sdf;
+    return self.getShaderSdfFromNode(node);
+}
+
 fn getShaderSdfFromNode(self: *Self, sdf_node: Node.Kind.Sdf) *Sdf {
     return &self.shader_data.sdfs[sdf_node.shader_id];
 }
@@ -205,51 +210,29 @@ pub fn reparent(self: *Self, item: Node.Id, parent: Node.Id) void {
     self.nodeKindPtr(parent).object.children.add(self.allocator, item) catch oom();
 }
 
-/// Reorder `child_id` to be placed before `before_id` within the same parent.
-pub fn reorder(self: *Self, parent_id: Node.Id, child_id: Node.Id, before_id: Node.Id) void {
-    if (child_id == before_id) return;
+/// Reorder `child_id` to be placed before `prev_id` within the same parent.
+pub fn reorder(self: *Self, parent: Node.Id, prev_id: Node.Id, child: Node.Id) void {
+    if (child == prev_id) return;
 
-    var children = &self.getNode(parent_id).kind.object.children;
+    var children = &self.getNode(parent).kind.object.children;
     const keys = children.keys();
-    const count = keys.len;
 
-    // Copy current order
-    var buf: [max_obj]Node.Id = undefined;
-    @memcpy(buf[0..count], keys);
+    const new_index = children.getIndex(child).?;
+    const prev_index = children.getIndex(prev_id).?;
 
-    // Remove child from current position
-    var temp: [max_obj]Node.Id = undefined;
-    var j: usize = 0;
-    for (buf[0..count]) |k| {
-        if (k != child_id) {
-            temp[j] = k;
-            j += 1;
-        }
-    }
+    keys[prev_index] = child;
+    keys[new_index] = prev_id;
 
-    // Find target position (where before_id is now, after removal)
-    var target: usize = j; // fallback: end
-    for (temp[0..j], 0..) |k, idx| {
-        if (k == before_id) {
-            target = idx;
-            break;
-        }
-    }
+    const old_sdf = self.nodeKind(prev_id).sdf;
+    const new_sdf = self.nodeKind(child).sdf;
 
-    // Insert child at target position
-    var result: [max_obj]Node.Id = undefined;
-    @memcpy(result[0..target], temp[0..target]);
-    result[target] = child_id;
-    @memcpy(result[target + 1 .. count], temp[target..j]);
-
-    // Rebuild set in new order
-    children.set.clearRetainingCapacity();
-    for (result[0..count]) |k| {
-        children.set.putAssumeCapacity(k, {});
-    }
+    const tmp = self.shader_data.sdfs[old_sdf.shader_id];
+    self.shader_data.sdfs[old_sdf.shader_id] = self.shader_data.sdfs[new_sdf.shader_id];
+    self.shader_data.sdfs[new_sdf.shader_id] = tmp;
 }
 
-pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?Node.Kind.Sdf {
+// TODO: add operations?
+pub fn raymarch(self: *Self, ro: m.Vec3, rd: m.Vec3) ?Node.Kind.Sdf {
     var dist: f32 = 0.0;
     var hit_node: ?Node.Kind.Sdf = null;
 
@@ -257,32 +240,12 @@ pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?Node.Kind.Sdf {
 
     for (0..iterations) |_| {
         const p = ro.add(rd.scale(dist));
+        const res = self.raymarchObj(&self.nodes.items[0].kind.object, p);
 
-        var result_dist: f32 = 100.0;
-        var result_node: ?Node.Kind.Sdf = null;
+        dist += res.d;
+        hit_node = res.sdf;
 
-        for (self.nodes.items) |*node| {
-            if (!node.visible) {
-                continue;
-            }
-
-            const sdf_node = switch (node.kind) {
-                .sdf => |sdf_node| sdf_node,
-                .object => continue,
-            };
-            const sdf_shader = &self.shader_data.sdfs[sdf_node.shader_id];
-
-            const d = sdf_shader.evaluateSDF(p);
-            if (d < result_dist) {
-                result_dist = d;
-                result_node = sdf_node;
-            }
-        }
-
-        dist += result_dist;
-        hit_node = result_node;
-
-        if (dist > 100 or result_dist < 0.001) {
+        if (dist > 100 or res.d < 0.001) {
             break;
         }
     }
@@ -292,6 +255,41 @@ pub fn raymarch(self: *const Self, ro: m.Vec3, rd: m.Vec3) ?Node.Kind.Sdf {
     }
 
     return null;
+}
+
+const RaymarchRes = struct {
+    d: f32,
+    sdf: Node.Kind.Sdf,
+};
+fn raymarchObj(self: *Self, obj: *const Node.Kind.Object, p: m.Vec3) RaymarchRes {
+    var d: f32 = 100;
+    var sdf_res: Node.Kind.Sdf = .empty;
+
+    for (obj.children.keys()) |id| {
+        const node = self.getNode(id);
+
+        if (!node.visible) {
+            continue;
+        }
+
+        const res: RaymarchRes = switch (node.kind) {
+            .object => |*child_obj| self.raymarchObj(child_obj, p),
+            .sdf => |sdf_node| self.raymarchSdf(sdf_node, p),
+        };
+
+        const prev = d;
+        if (res.d < prev) {
+            d = res.d;
+            sdf_res = res.sdf;
+        }
+    }
+
+    return .{ .d = d, .sdf = sdf_res };
+}
+
+fn raymarchSdf(self: *Self, sdf_node: Node.Kind.Sdf, p: m.Vec3) RaymarchRes {
+    const sdf_shader = &self.shader_data.sdfs[sdf_node.shader_id];
+    return .{ .d = sdf_shader.evaluateSDF(p), .sdf = sdf_node };
 }
 
 pub fn debug(self: *Self) void {
