@@ -24,6 +24,8 @@ pub const guiEx = struct {
     pub extern fn ImGui_DockBuilderSplitNode(node_id: gui.ImGuiID, split_dir: gui.ImGuiDir, size_ratio: f32, out_id_at_dir: *gui.ImGuiID, out_id_at_opposite_dir: *gui.ImGuiID) gui.ImGuiID;
     pub extern fn ImGui_DockBuilderDockWindow(window_name: [*:0]const u8, node_id: gui.ImGuiID) void;
     pub extern fn ImGui_DockBuilderFinish(node_id: gui.ImGuiID) void;
+    pub extern fn ImGui_SeparatorEx(flags: i32, thickness: f32) void;
 
     pub const ImGuiDockNodeFlags_DockSpace = 1 >> 10;
+    pub const ImGuiSeparatorFlags_Vertical = 1 << 1;
 };

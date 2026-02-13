@@ -20,6 +20,8 @@ struct SDFObject {
     float scale;
     vec3 color;
     bool visible;
+    uint obj_id;
+    float _pad[3];
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
@@ -92,8 +94,6 @@ float intersection(float d1, float d2, float k) {
 
 float evaluateSDF(SDFObject obj, vec3 p) {
     vec3 local_p = mat3(obj.transform) * (p - obj.transform[3].xyz) / obj.scale;
-    // vec3 local_p = (p - obj.transform[3].xyz) / obj.scale;
-    // vec3 local_p = obj.all * (p - obj.all[3].xyz) / obj.scale;
 
     if (obj.kind == SDF_SPHERE)   return sdSphere(local_p, obj.params.x) * obj.scale;
     if (obj.kind == SDF_BOX)      return sdBox(local_p, obj.params.xyz, obj.params.w) * obj.scale;
@@ -106,6 +106,7 @@ float applyOperation(float d1, float d2, uint op, float k) {
     if (op == OP_UNION)     return unionOp(d1, d2, k);
     if (op == OP_SUBTRACT)  return subtraction(d1, d2, k);
     if (op == OP_INTERSECT) return intersection(d1, d2, k);
+
     // op == none
     return d1;
 }
@@ -113,23 +114,58 @@ float applyOperation(float d1, float d2, uint op, float k) {
 SceneInfo getDist(vec3 p) {
     float result_dist = MAX_DIST;
     uint index = 0;
+    uint obj_id = 0;
+
+    if (object_count == 0) {
+        return SceneInfo(MAX_DIST, 0);
+    }
+
+    uint current_obj = objects[0].obj_id;
+    float group_dist = MAX_DIST;
+    uint group_index = 0;
 
     // TODO: condition on 128 could be CPU side
     for (uint i = 0; i < object_count && i < 128; ++i) {
         SDFObject obj = objects[i];
 
+        // New object group → finalize previous group with union
+        if (obj.obj_id != current_obj) {
+            if (group_dist < result_dist) {
+                result_dist = group_dist;
+                index = group_index;
+            }
+            current_obj = obj.obj_id;
+            group_dist = MAX_DIST;
+        }
+
         if (!obj.visible) {
             continue;
         }
 
-        float obj_dist = evaluateSDF(obj, p);
+        float d = evaluateSDF(obj, p);
 
-        float prev_dist = result_dist;
-        result_dist = applyOperation(obj_dist, result_dist, obj.op, obj.smooth_factor);
-        
-        if (result_dist < prev_dist) {
-            index = i;
+        float prev = group_dist;
+        group_dist = applyOperation(d, group_dist, obj.op, obj.smooth_factor);
+        if (group_dist < prev) {
+            group_index = i;
         }
+
+        // if (obj.obj_id == obj_id) {
+        //     float prev_dist = result_dist;
+        //     result_dist = applyOperation(d, result_dist, obj.op, obj.smooth_factor);
+        //     if (result_dist < prev_dist) {
+        //         index = i;
+        //     }
+        // } else if (d < result_dist) {
+        //     obj_id = obj.obj_id;
+        //     index = i;
+        // }
+    }
+
+    // Finalize last group
+    if (group_dist < result_dist) {
+        result_dist = group_dist;
+        index = group_index;
     }
 
     return SceneInfo(result_dist, index);

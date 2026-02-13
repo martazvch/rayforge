@@ -36,7 +36,7 @@ pub fn deinit(self: *Self) void {
 /// Binds several part of the software together
 pub fn bind(self: *Self) void {
     self.editor = .init(self.pipeline.device, self.pipeline.window);
-    self.scene.createAlloc();
+    self.scene.postInit();
     self.scene.debug();
     self.event_loop.bind(&self.scene, &self.camera, &self.editor.viewport);
 

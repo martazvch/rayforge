@@ -48,7 +48,9 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
             return sdl.SDL_APP_SUCCESS;
         },
         sdl.SDL_EVENT_MOUSE_WHEEL => {
-            self.camera.zoom(event.wheel.y);
+            if (self.viewport_hovered) {
+                self.camera.zoom(event.wheel.y);
+            }
 
             // Free camera
             // self.camera.offsetFov(event.wheel.y);
@@ -67,10 +69,13 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
 
                 const ray = self.camera.screenToRay(x, y, self.viewport.rect.size);
 
+                // const obj = self.scene.getSelectedObj();
                 if (self.scene.raymarch(ray.ro, ray.rd)) |hit| {
-                    self.scene.selected_sdf = hit;
+                    // const obj = self.scene.shader_data.sdfs[hit].obj_id;
+                    // self.scene.nodes.items[obj].kind.object.selected_sdf = .fromInt(0);
+                    self.scene.selectNode(hit.node_id);
                 } else {
-                    self.scene.selected_sdf = null;
+                    self.scene.selected = null;
                 }
             }
         },

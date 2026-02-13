@@ -39,6 +39,8 @@ pub const Sdf = extern struct {
 
     color: m.Vec3,
     visible: bool,
+    obj_id: u32,
+    pad: [3]f32,
 
     pub fn getPos(self: *const Sdf) m.Vec3 {
         return math.vec3FromSlice(self.transform.fields[3][0..3]);
@@ -125,4 +127,12 @@ pub const Sdf = extern struct {
             },
         };
     }
+};
+
+pub const name_size = 64;
+
+pub const Meta = struct {
+    name: [name_size:0]u8,
+    rotation: m.Vec3,
+    visible: bool,
 };

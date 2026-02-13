@@ -1,13 +1,17 @@
 const std = @import("std");
 const c = @import("c");
 const gui = c.gui;
+const guiEx = c.guiEx;
+const rayUi = @import("../rayui.zig");
 const Rect = @import("../Rect.zig");
 const Scene = @import("../Scene.zig");
 const SceneTree = @import("scene_tree.zig");
 const Properties = @import("properties.zig");
 const Viewport = @import("Viewport.zig");
+const icons = @import("../icons.zig");
+const sdf = @import("../sdf.zig");
 
-const TOOLBAR_HEIGHT: f32 = 28;
+const TOOLBAR_HEIGHT: f32 = 20;
 const STATUSBAR_HEIGHT: f32 = 22;
 const DEFAULT_PROPERTIES_WIDTH: f32 = 200;
 const DEFAULT_SCENE_WIDTH: f32 = 200;
@@ -33,6 +37,7 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
     const vp = gui.ImGui_GetMainViewport();
     const work_pos = vp.*.WorkPos;
     const work_size = vp.*.WorkSize;
+    const icon_size: gui.ImVec2 = .{ .x = icons.size, .y = icons.size };
 
     // Style: no rounding, no borders (we draw custom separators)
     gui.ImGui_PushStyleVar(gui.ImGuiStyleVar_WindowRounding, 0.0);
@@ -98,12 +103,26 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
             gui.ImGui_SameLine();
             if (gui.ImGui_Button("-")) {}
 
+            // Vertical separator with spacing
+            gui.ImGui_SameLine();
+            rayUi.separatorVert(TOOLBAR_HEIGHT, BORDER_COLOR, 2, 8);
+            gui.ImGui_SameLine();
+
+            // Shape buttons — draggable into viewport
+            shapeButton("##Sphere", icons.sphere.toImGuiRef(), icon_size, .sphere);
+            gui.ImGui_SameLine();
+            shapeButton("##Box", icons.cube.toImGuiRef(), icon_size, .box);
+            gui.ImGui_SameLine();
+            shapeButton("##Cylinder", icons.cylinder.toImGuiRef(), icon_size, .cylinder);
+            gui.ImGui_SameLine();
+            shapeButton("##Torus", icons.torus.toImGuiRef(), icon_size, .torus);
+
             // Fullscreen toggle at far right
             gui.ImGui_SameLine();
             const avail = gui.ImGui_GetContentRegionAvail();
             const button_width: f32 = 32;
             gui.ImGui_SetCursorPosX(gui.ImGui_GetCursorPosX() + avail.x - button_width);
-            if (gui.ImGui_Button("[ ]")) {
+            if (gui.ImGui_ImageButton("##Fullscreen", icons.fullscreen.toImGuiRef(), icon_size)) {
                 // Toggle fullscreen
             }
         }
@@ -230,7 +249,6 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeEW);
     } else if (vp_hovered) {
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeEW);
-        // gui.ImDrawList_AddRectFilled(draw_list, vp_splitter_min, vp_splitter_max, 0x40FFFFFF);
     }
 
     // === Splitter: Properties | Scene ===
@@ -253,7 +271,6 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeEW);
     } else if (ps_hovered) {
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeEW);
-        // gui.ImDrawList_AddRectFilled(draw_list, ps_splitter_min, ps_splitter_max, 0x40FFFFFF);
     }
 
     // === Splitter: Scene | Chunks (horizontal) ===
@@ -277,5 +294,15 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     } else if (h_hovered) {
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeNS);
         // gui.ImDrawList_AddRectFilled(draw_list, h_splitter_min, h_splitter_max, 0x40FFFFFF);
+    }
+}
+
+fn shapeButton(id: [*c]const u8, icon: gui.ImTextureRef, size: gui.ImVec2, kind: sdf.Kind) void {
+    _ = gui.ImGui_ImageButton(id, icon, size);
+
+    if (gui.ImGui_BeginDragDropSource(0)) {
+        _ = gui.ImGui_SetDragDropPayload("NEW_SHAPE", &kind, @sizeOf(sdf.Kind), 0);
+        gui.ImGui_Image(icon, size);
+        gui.ImGui_EndDragDropSource();
     }
 }

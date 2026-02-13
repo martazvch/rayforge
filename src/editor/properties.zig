@@ -18,6 +18,12 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     const sdf = scene.getSelectedSdf() orelse return;
     const meta = scene.getSelectedSdfMeta() orelse return;
 
+    // Collapsing header style: small arrow, no background
+    gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Header, math.guiVec4Zero);
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_HeaderHovered, math.guiVec4Zero);
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_HeaderActive, math.guiVec4Zero);
+
     var pos: m.Vec3 = sdf.getPos();
     vec3Edit("Transform", &pos, 0.05, 0, 0, "%.2f");
 
@@ -35,6 +41,9 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     scale(sdf);
     operations(sdf);
     material(sdf);
+
+    gui.ImGui_PopStyleColorEx(3);
+    gui.ImGui_PopStyleVar();
 }
 
 fn resetableDragFloat(id: [*c]const u8, prop: *f32, speed: f32, min: f32, max: f32, fmt: [*c]const u8, reset_val: f32) void {
@@ -55,7 +64,7 @@ fn resetableDragFloat(id: [*c]const u8, prop: *f32, speed: f32, min: f32, max: f
 }
 
 fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fmt: [*c]const u8) void {
-    gui.ImGui_SeparatorText(id);
+    if (!category(id)) return;
 
     gui.ImGui_PushID(id);
     defer gui.ImGui_PopID();
@@ -75,12 +84,12 @@ fn vec3Edit(id: [*c]const u8, v: *m.Vec3, speed: f32, v_min: f32, v_max: f32, fm
 }
 
 fn scale(sdf: *Sdf.Sdf) void {
-    gui.ImGui_SeparatorText("Scale");
+    if (!category("Scale")) return;
     resetableDragFloat("##Scale", &sdf.scale, 0.01, 0.01, 100, "%.2f", 1);
 }
 
 fn operations(sdf: *Sdf.Sdf) void {
-    gui.ImGui_SeparatorText("Operation");
+    if (!category("Operation")) return;
 
     // If properties is openned, we have a selected SDF
     operation("union", icons.union_op, sdf, .union_op);
@@ -116,8 +125,14 @@ fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void 
 
 var picker_openned: bool = false;
 
+fn category(label: [*c]const u8) bool {
+    gui.ImGui_SetNextItemOpen(true, gui.ImGuiCond_Once);
+    const open = gui.ImGui_CollapsingHeader(label, 0);
+    return open;
+}
+
 fn material(sdf: *Sdf.Sdf) void {
-    gui.ImGui_SeparatorText("Material");
+    if (!category("Material")) return;
 
     if (!picker_openned) {
         if (gui.ImGui_ColorButton("##color", math.zlmToImGui(math.extendVec3(sdf.color, 1)), 0)) {

@@ -1,9 +1,48 @@
 #pragma clang diagnostic ignored "-Wmissing-prototypes"
+#pragma clang diagnostic ignored "-Wmissing-braces"
 
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+template<typename T, size_t Num>
+struct spvUnsafeArray
+{
+    T elements[Num ? Num : 1];
+    
+    thread T& operator [] (size_t pos) thread
+    {
+        return elements[pos];
+    }
+    constexpr const thread T& operator [] (size_t pos) const thread
+    {
+        return elements[pos];
+    }
+    
+    device T& operator [] (size_t pos) device
+    {
+        return elements[pos];
+    }
+    constexpr const device T& operator [] (size_t pos) const device
+    {
+        return elements[pos];
+    }
+    
+    constexpr const constant T& operator [] (size_t pos) const constant
+    {
+        return elements[pos];
+    }
+    
+    threadgroup T& operator [] (size_t pos) threadgroup
+    {
+        return elements[pos];
+    }
+    constexpr const threadgroup T& operator [] (size_t pos) const threadgroup
+    {
+        return elements[pos];
+    }
+};
 
 struct SDFObject
 {
@@ -15,6 +54,8 @@ struct SDFObject
     float scale;
     float3 color;
     short visible;
+    uint obj_id;
+    spvUnsafeArray<float, 3> _pad;
 };
 
 struct SceneInfo
@@ -33,6 +74,8 @@ struct SDFObject_1
     float scale;
     packed_float3 color;
     uint visible;
+    uint obj_id;
+    float _pad[3];
 };
 
 struct SceneBlock
@@ -181,44 +224,71 @@ float applyOperation(thread const float& d1, thread const float& d2, thread cons
 }
 
 static inline __attribute__((always_inline))
-SceneInfo getDist(thread const float3& p, const device SceneBlock& _418)
+SceneInfo getDist(thread const float3& p, const device SceneBlock& _414)
 {
     float result_dist = 100.0;
     uint index = 0u;
-    SDFObject obj;
-    for (uint i = 0u; (i < _418.object_count) && (i < 128u); i++)
+    uint obj_id = 0u;
+    if (_414.object_count == 0u)
     {
-        obj.transform = _418.objects[i].transform;
-        obj.params = _418.objects[i].params;
-        obj.kind = _418.objects[i].kind;
-        obj.op = _418.objects[i].op;
-        obj.smooth_factor = _418.objects[i].smooth_factor;
-        obj.scale = _418.objects[i].scale;
-        obj.color = float3(_418.objects[i].color);
-        obj.visible = short(_418.objects[i].visible != 0u);
+        return SceneInfo{ 100.0, 0u };
+    }
+    uint current_obj = _414.objects[0].obj_id;
+    float group_dist = 100.0;
+    uint group_index = 0u;
+    SDFObject obj;
+    for (uint i = 0u; (i < _414.object_count) && (i < 128u); i++)
+    {
+        obj.transform = _414.objects[i].transform;
+        obj.params = _414.objects[i].params;
+        obj.kind = _414.objects[i].kind;
+        obj.op = _414.objects[i].op;
+        obj.smooth_factor = _414.objects[i].smooth_factor;
+        obj.scale = _414.objects[i].scale;
+        obj.color = float3(_414.objects[i].color);
+        obj.visible = short(_414.objects[i].visible != 0u);
+        obj.obj_id = _414.objects[i].obj_id;
+        obj._pad[0] = _414.objects[i]._pad[0];
+        obj._pad[1] = _414.objects[i]._pad[1];
+        obj._pad[2] = _414.objects[i]._pad[2];
+        if (obj.obj_id != current_obj)
+        {
+            if (group_dist < result_dist)
+            {
+                result_dist = group_dist;
+                index = group_index;
+            }
+            current_obj = obj.obj_id;
+            group_dist = 100.0;
+        }
         if (!bool(obj.visible))
         {
             continue;
         }
         SDFObject param = obj;
         float3 param_1 = p;
-        float obj_dist = evaluateSDF(param, param_1);
-        float prev_dist = result_dist;
-        float param_2 = obj_dist;
-        float param_3 = result_dist;
+        float d = evaluateSDF(param, param_1);
+        float prev = group_dist;
+        float param_2 = d;
+        float param_3 = group_dist;
         uint param_4 = obj.op;
         float param_5 = obj.smooth_factor;
-        result_dist = applyOperation(param_2, param_3, param_4, param_5);
-        if (result_dist < prev_dist)
+        group_dist = applyOperation(param_2, param_3, param_4, param_5);
+        if (group_dist < prev)
         {
-            index = i;
+            group_index = i;
         }
+    }
+    if (group_dist < result_dist)
+    {
+        result_dist = group_dist;
+        index = group_index;
     }
     return SceneInfo{ result_dist, index };
 }
 
 static inline __attribute__((always_inline))
-SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, const device SceneBlock& _418)
+SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, const device SceneBlock& _414)
 {
     float dO = 0.0;
     uint index = 0u;
@@ -226,20 +296,20 @@ SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread cons
     {
         float3 p = ro + (rd * dO);
         float3 param = p;
-        SceneInfo info = getDist(param, _418);
+        SceneInfo info = getDist(param, _414);
         dO += info.dist;
         index = info.index;
-        bool _563 = dO > maxDist;
-        bool _571;
-        if (!_563)
+        bool _613 = dO > maxDist;
+        bool _621;
+        if (!_613)
         {
-            _571 = abs(info.dist) < 0.001000000047497451305389404296875;
+            _621 = abs(info.dist) < 0.001000000047497451305389404296875;
         }
         else
         {
-            _571 = _563;
+            _621 = _613;
         }
-        if (_571)
+        if (_621)
         {
             break;
         }
@@ -248,23 +318,23 @@ SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread cons
 }
 
 static inline __attribute__((always_inline))
-float3 getNormal(thread const float3& p, const device SceneBlock& _418)
+float3 getNormal(thread const float3& p, const device SceneBlock& _414)
 {
     float3 param = p + float3(0.001000000047497451305389404296875, -0.001000000047497451305389404296875, -0.001000000047497451305389404296875);
     float3 param_1 = p + float3(-0.001000000047497451305389404296875, -0.001000000047497451305389404296875, 0.001000000047497451305389404296875);
     float3 param_2 = p + float3(-0.001000000047497451305389404296875, 0.001000000047497451305389404296875, -0.001000000047497451305389404296875);
     float3 param_3 = p + float3(0.001000000047497451305389404296875);
-    return fast::normalize((((float3(1.0, -1.0, -1.0) * getDist(param, _418).dist) + (float3(-1.0, -1.0, 1.0) * getDist(param_1, _418).dist)) + (float3(-1.0, 1.0, -1.0) * getDist(param_2, _418).dist)) + (float3(1.0) * getDist(param_3, _418).dist));
+    return fast::normalize((((float3(1.0, -1.0, -1.0) * getDist(param, _414).dist) + (float3(-1.0, -1.0, 1.0) * getDist(param_1, _414).dist)) + (float3(-1.0, 1.0, -1.0) * getDist(param_2, _414).dist)) + (float3(1.0) * getDist(param_3, _414).dist));
 }
 
 static inline __attribute__((always_inline))
-float shadowMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, const device SceneBlock& _418)
+float shadowMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, const device SceneBlock& _414)
 {
     float dO = 0.0;
     for (int i = 0; i < 80; i++)
     {
         float3 param = ro + (rd * dO);
-        float d = getDist(param, _418).dist;
+        float d = getDist(param, _414).dist;
         dO += d;
         if ((dO > maxDist) || (d < 0.001000000047497451305389404296875))
         {
@@ -275,18 +345,18 @@ float shadowMarch(thread const float3& ro, thread const float3& rd, thread const
 }
 
 static inline __attribute__((always_inline))
-float getLight(thread const float3& p, const device SceneBlock& _418)
+float getLight(thread const float3& p, const device SceneBlock& _414)
 {
     float3 lightPos = float3(5.0, 5.0, -5.0);
     float3 l = fast::normalize(lightPos - p);
     float3 param = p;
-    float3 n = getNormal(param, _418);
+    float3 n = getNormal(param, _414);
     float dif = fast::clamp(dot(n, l), 0.0, 1.0);
     float lightDist = length(lightPos - p);
     float3 param_1 = p + ((n * 0.001000000047497451305389404296875) * 2.0);
     float3 param_2 = l;
     float param_3 = lightDist;
-    float shadow = shadowMarch(param_1, param_2, param_3, _418);
+    float shadow = shadowMarch(param_1, param_2, param_3, _414);
     if (shadow < lightDist)
     {
         dif *= 0.300000011920928955078125;
@@ -295,10 +365,10 @@ float getLight(thread const float3& p, const device SceneBlock& _418)
 }
 
 static inline __attribute__((always_inline))
-float4 getGridColorAA(thread const float3& p, constant CameraBlock& _670)
+float4 getGridColorAA(thread const float3& p, constant CameraBlock& _720)
 {
     float2 coord = p.xz;
-    float camDist = length(float3(_670.cam_pos) - p);
+    float camDist = length(float3(_720.cam_pos) - p);
     float distFade = 1.0 - smoothstep(40.0, 90.0, camDist);
     float2 dx = dfdx(coord);
     float2 dy = dfdy(coord);
@@ -324,15 +394,15 @@ float4 getGridColorAA(thread const float3& p, constant CameraBlock& _670)
     return float4(color, alpha);
 }
 
-fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _670 [[buffer(0)]], const device SceneBlock& _418 [[buffer(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _720 [[buffer(0)]], const device SceneBlock& _414 [[buffer(1)]])
 {
     main0_out out = {};
     float2 uv = (in.fragTexCoord * 2.0) - float2(1.0);
-    uv.x *= (_670.resolution.x / _670.resolution.y);
-    float fov_factor = tan(_670.fov * 0.5);
+    uv.x *= (_720.resolution.x / _720.resolution.y);
+    float fov_factor = tan(_720.fov * 0.5);
     uv *= fov_factor;
-    float3 rd = fast::normalize(_670.cam_rot * float3(uv.x, uv.y, 1.0));
-    float3 ro = float3(_670.cam_pos);
+    float3 rd = fast::normalize(_720.cam_rot * float3(uv.x, uv.y, 1.0));
+    float3 ro = float3(_720.cam_pos);
     float gridT = 101.0;
     if (abs(rd.y) > 9.9999999747524270787835121154785e-07)
     {
@@ -345,14 +415,14 @@ fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _670 [[
     float3 param = ro;
     float3 param_1 = rd;
     float param_2 = 100.0;
-    SceneInfo info = rayMarch(param, param_1, param_2, _418);
+    SceneInfo info = rayMarch(param, param_1, param_2, _414);
     float3 col = float3(0.1500000059604644775390625, 0.1500000059604644775390625, 0.180000007152557373046875);
     if (info.dist < 100.0)
     {
         float3 p = ro + (rd * info.dist);
         float3 param_3 = p;
-        float light = getLight(param_3, _418);
-        float3 baseColor = float3(_418.objects[info.index].color);
+        float light = getLight(param_3, _414);
+        float3 baseColor = float3(_414.objects[info.index].color);
         col = (baseColor * light) + (baseColor * 0.100000001490116119384765625);
         col += float3(0.02999999932944774627685546875, 0.02999999932944774627685546875, 0.0500000007450580596923828125);
         col = powr(col, float3(0.4544999897480010986328125));
@@ -361,7 +431,7 @@ fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _670 [[
     {
         float3 p_1 = ro + (rd * gridT);
         float3 param_4 = p_1;
-        float4 grid = getGridColorAA(param_4, _670);
+        float4 grid = getGridColorAA(param_4, _720);
         col = mix(col, grid.xyz, float3(grid.w));
     }
     out.outColor = float4(col, 1.0);
