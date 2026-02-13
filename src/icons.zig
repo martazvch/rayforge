@@ -1,9 +1,12 @@
-const sdl = @import("c").sdl;
+const c = @import("c");
+const gui = c.gui;
+const sdl = c.sdl;
 const Texture = @import("Texture.zig");
 
 const folder = "assets/icons/";
 
 pub const size = 16;
+pub const size_vec: gui.ImVec2 = .{ .x = size, .y = size };
 
 pub var eye: Texture = undefined;
 pub var eye_closed: Texture = undefined;

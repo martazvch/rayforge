@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const c = @import("c");
 const sdl = c.sdl;
 const gui = c.gui;
@@ -6,25 +7,21 @@ const math = @import("../math.zig");
 const m = math.zlm;
 const theme = @import("theme.zig");
 const State = @import("State.zig");
-const Scene = @import("../Scene.zig");
 const Layout = @import("layout.zig");
 const Viewport = @import("Viewport.zig");
-const Pipeline = @import("../Pipeline.zig");
-const EventLoop = @import("../EventLoop.zig");
-const Camera = @import("../Camera.zig");
 const Projection = @import("../Projection.zig");
 const Rect = @import("../Rect.zig");
+const globals = @import("../globals.zig");
 const fatal = @import("../utils.zig").fatal;
 
 imio: *gui.ImGuiIO,
 state: State,
-device: *sdl.SDL_GPUDevice,
-window: *sdl.SDL_Window,
+layout: Layout,
 viewport: Viewport,
 
 const Self = @This();
 
-pub fn init(device: *sdl.SDL_GPUDevice, window: *sdl.SDL_Window) Self {
+pub fn init() Self {
     _ = gui.CIMGUI_CHECKVERSION();
     _ = gui.ImGui_CreateContext(null);
 
@@ -32,13 +29,13 @@ pub fn init(device: *sdl.SDL_GPUDevice, window: *sdl.SDL_Window) Self {
     imio.*.ConfigFlags = gui.ImGuiConfigFlags_NavEnableKeyboard;
     imio.*.ConfigFlags = gui.ImGuiConfigFlags_DockingEnable;
 
-    if (!gui.cImGui_ImplSDL3_InitForSDLGPU(@ptrCast(window))) {
+    if (!gui.cImGui_ImplSDL3_InitForSDLGPU(@ptrCast(globals.window))) {
         fatal("failed to initialize ImGUI window", .{});
     }
 
     var init_info: gui.struct_ImGui_ImplSDLGPU3_InitInfo_t = .{
-        .Device = @ptrCast(device),
-        .ColorTargetFormat = sdl.SDL_GetGPUSwapchainTextureFormat(device, window),
+        .Device = @ptrCast(globals.device),
+        .ColorTargetFormat = sdl.SDL_GetGPUSwapchainTextureFormat(globals.device, globals.window),
         .MSAASamples = sdl.SDL_GPU_SAMPLECOUNT_1, // only used in multi-viewports mode
         .SwapchainComposition = sdl.SDL_GPU_SWAPCHAINCOMPOSITION_SDR, // same
         .PresentMode = sdl.SDL_GPU_PRESENTMODE_VSYNC,
@@ -78,13 +75,13 @@ pub fn init(device: *sdl.SDL_GPUDevice, window: *sdl.SDL_Window) Self {
     return .{
         .imio = imio,
         .state = .init(),
-        .device = device,
-        .window = window,
+        .layout = .init(),
         .viewport = .init(),
     };
 }
 
-pub fn deinit(_: *const Self) void {
+pub fn deinit(self: *Self) void {
+    self.layout.deinit();
     gui.cImGui_ImplSDL3_Shutdown();
     gui.cImGui_ImplSDLGPU3_Shutdown();
     gui.ImGui_DestroyContext(null);
@@ -96,20 +93,20 @@ pub fn newFrame(_: *const Self) void {
     gui.ImGui_NewFrame();
 }
 
-pub fn render(self: *Self, pipeline: *Pipeline, scene: *Scene, camera: *const Camera, event_loop: *EventLoop) void {
+pub fn render(self: *Self) void {
     // --------
     //  Render
     // --------
     self.newFrame();
 
     // Render layout and get viewport region
-    Layout.render(scene, &self.viewport);
+    self.layout.render(&globals.scene, &self.viewport);
 
     // Viewport
-    _ = self.viewport.render(pipeline, event_loop);
+    _ = self.viewport.render();
 
     // Selected object
-    drawBoundingBox(scene, camera, self.viewport.rect);
+    drawBoundingBox(self.viewport.rect);
 
     gui.ImGui_Render();
 
@@ -120,21 +117,21 @@ pub fn render(self: *Self, pipeline: *Pipeline, scene: *Scene, camera: *const Ca
     // Resize viewport texture to match the layout region
     const width: u32 = @max(1, @as(u32, @intFromFloat(self.viewport.rect.size.x)));
     const height: u32 = @max(1, @as(u32, @intFromFloat(self.viewport.rect.size.y)));
-    pipeline.resizeViewport(width, height);
+    globals.pipeline.resizeViewport(width, height);
 
     // Check if mouse is over viewport region for input handling
     const mouse_pos = gui.ImGui_GetMousePos();
-    event_loop.setViewportState(self.viewport.rect.isIn(mouse_pos.x, mouse_pos.y));
+    globals.event_loop.setViewportState(self.viewport.rect.isIn(mouse_pos.x, mouse_pos.y));
 }
 
-fn drawBoundingBox(scene: *Scene, camera: *const Camera, vp: Rect) void {
-    const sdf = scene.getSelectedSdf() orelse return;
+fn drawBoundingBox(vp: Rect) void {
+    const sdf = globals.scene.getSelectedSdf() orelse return;
 
     if (!sdf.visible) {
         return;
     }
 
-    const proj: Projection = .init(camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
+    const proj: Projection = .init(&globals.camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
 
     // Get local AABB (centered at origin), then transform each corner
     // by scale, rotation, and translation to get a proper OBB.
@@ -172,7 +169,7 @@ fn drawBoundingBox(scene: *Scene, camera: *const Camera, vp: Rect) void {
     for (faces, 0..) |f, i| {
         const a = corners_3d[f[0]];
         const normal = corners_3d[f[1]].sub(a).cross(corners_3d[f[2]].sub(a));
-        face_visible[i] = normal.dot(camera.pos.sub(a)) > 0;
+        face_visible[i] = normal.dot(globals.camera.pos.sub(a)) > 0;
     }
 
     // Project all 8 corners to screen space

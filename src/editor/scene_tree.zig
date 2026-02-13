@@ -61,7 +61,7 @@ var renaming: ?Node.Id = null;
 var rename_just_started: bool = false;
 
 fn sceneTree(scene: *Scene) void {
-    for (scene.nodes.items[0].kind.object.children.items) |root| {
+    for (scene.nodes.items[0].kind.object.children.keys()) |root| {
         renderNode(scene, root);
     }
 }
@@ -69,13 +69,13 @@ fn sceneTree(scene: *Scene) void {
 fn renderNode(scene: *Scene, id: Node.Id) void {
     const node = scene.getNode(id);
     const frame_h = gui.ImGui_GetFrameHeight();
-    const icon_sz: gui.ImVec2 = .{ .x = icons.size, .y = icons.size };
     const icon_v_offset = (frame_h - icons.size) / 2.0;
 
     var flags = gui.ImGuiTreeNodeFlags_DefaultOpen |
         gui.ImGuiTreeNodeFlags_SpanAvailWidth |
         gui.ImGuiTreeNodeFlags_AllowOverlap |
-        gui.ImGuiTreeNodeFlags_OpenOnArrow;
+        gui.ImGuiTreeNodeFlags_OpenOnArrow |
+        gui.ImGuiTreeNodeFlags_DrawLinesToNodes;
 
     if (scene.selected) |selected_id| {
         if (selected_id == id) {
@@ -112,16 +112,22 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
         }
     }
 
-    // Only objects accept drops
-    if (!is_leaf) {
-        if (gui.ImGui_BeginDragDropTarget()) {
-            if (gui.ImGui_AcceptDragDropPayload("SCENE_NODE", 0)) |payload| {
-                const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
-                std.log.debug("Source: {any}, id: {any}", .{ source_id.*, id });
+    // Drop target: objects accept reparenting, leaves accept reordering
+    if (gui.ImGui_BeginDragDropTarget()) {
+        if (gui.ImGui_AcceptDragDropPayload("SCENE_NODE", 0)) |payload| {
+            const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
+            if (!is_leaf) {
+                // Dropping onto an object: reparent into it
                 scene.reparent(source_id.*, id);
+            } else {
+                // Dropping onto a leaf: reorder within same parent
+                const source_node = scene.getNode(source_id.*);
+                if (source_node.parent != null and node.parent != null and source_node.parent.? == node.parent.?) {
+                    scene.reorder(node.parent.?, source_id.*, id);
+                }
             }
-            gui.ImGui_EndDragDropTarget();
         }
+        gui.ImGui_EndDragDropTarget();
     }
 
     // Icon
@@ -135,7 +141,7 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     const cursor_x = gui.ImGui_GetCursorPosX();
     gui.ImGui_SetCursorPosX(cursor_x - x_offset);
 
-    gui.ImGui_Image(nodeIcon(scene, node), icon_sz);
+    gui.ImGui_Image(nodeIcon(scene, node), icons.size_vec);
     const icon_min_x = gui.ImGui_GetItemRectMin().x;
 
     gui.ImGui_SameLine();
@@ -189,7 +195,7 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_ButtonActive, .{ .x = 1, .y = 1, .z = 1, .w = 0.25 });
 
     const eye_icon = if (node.visible) icons.eye else icons.eye_closed;
-    if (gui.ImGui_ImageButton("##eye", eye_icon.toImGuiRef(), icon_sz)) {
+    if (gui.ImGui_ImageButton("##eye", eye_icon.toImGuiRef(), icons.size_vec)) {
         toggleVisibility(scene, node);
     }
 
@@ -216,7 +222,7 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     if (open) {
         switch (node.kind) {
             .object => |obj| {
-                for (obj.children.items) |child_id| {
+                for (obj.children.keys()) |child_id| {
                     renderNode(scene, child_id);
                 }
             },
@@ -259,7 +265,7 @@ fn toggleVisibility(scene: *Scene, node: *Node) void {
 }
 
 fn toggleObjectVisibility(scene: *Scene, node: *Node, obj: *Node.Kind.Object) void {
-    for (obj.children.items) |child| {
+    for (obj.children.keys()) |child| {
         switch (scene.nodeKindPtr(child).*) {
             .sdf => |sdf| {
                 const sdf_node = scene.getNode(sdf.node_id);

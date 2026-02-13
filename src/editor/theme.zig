@@ -2,31 +2,24 @@ const std = @import("std");
 const gui = @import("c").gui;
 const math = @import("../math.zig");
 
+pub const bg_very_dark: gui.ImVec4 = .{ .x = 0.12, .y = 0.12, .z = 0.14, .w = 1.00 };
+pub const bg_darker: gui.ImVec4 = .{ .x = 0.15, .y = 0.15, .z = 0.18, .w = 1.00 };
+pub const bg_dark: gui.ImVec4 = .{ .x = 0.18, .y = 0.18, .z = 0.21, .w = 1.00 };
+pub const bg_medium: gui.ImVec4 = .{ .x = 0.22, .y = 0.22, .z = 0.26, .w = 1.00 };
+pub const bg_light: gui.ImVec4 = .{ .x = 0.26, .y = 0.26, .z = 0.31, .w = 1.00 };
+
+pub const border: gui.ImVec4 = .{ .x = 0.25, .y = 0.25, .z = 0.30, .w = 1.00 }; // #40404d
+pub const text: gui.ImVec4 = .{ .x = 0.85, .y = 0.85, .z = 0.88, .w = 1.00 }; // #d9d9e0
+pub const text_dim: gui.ImVec4 = .{ .x = 0.55, .y = 0.55, .z = 0.60, .w = 1.00 }; // #8c8c99
+pub const accent_purple: gui.ImVec4 = .{ .x = 0.58, .y = 0.44, .z = 0.86, .w = 1.00 }; // #9470db
+pub const accent_purple_dim: gui.ImVec4 = .{ .x = 0.48, .y = 0.34, .z = 0.76, .w = 0.80 }; // #7a57c2
+pub const accent_blue: gui.ImVec4 = .{ .x = 0.40, .y = 0.63, .z = 0.90, .w = 1.00 }; // #66a0e6
+
+pub const border_color: u32 = 0xFF505050; // Gray border
+
 pub fn applyTheme() void {
     const style: *gui.ImGuiStyle_t = gui.ImGui_GetStyle();
     const colors = &style.Colors;
-
-    // Palette
-    // const d40 = 40.0 / 255.0;
-    // const d53 = 53.0 / 255.0;
-    // const d63 = 63.0 / 255.0;
-    // const d80 = 80.0 / 255.0;
-
-    const bg_very_dark = gui.ImVec4{ .x = 0.12, .y = 0.12, .z = 0.14, .w = 1.00 }; // Menu bar (keep dark)
-    // const bg_very_dark = gui.ImVec4{ .x = d40, .y = d40, .z = d40, .w = 1.00 }; // Menu bar (keep dark)
-    const bg_dark = gui.ImVec4{ .x = 0.18, .y = 0.18, .z = 0.21, .w = 1.00 }; // Window backgrounds
-    // const bg_dark = gui.ImVec4{ .x = d53, .y = d53, .z = d53, .w = 1.00 }; // Window backgrounds
-    const bg_medium = gui.ImVec4{ .x = 0.22, .y = 0.22, .z = 0.26, .w = 1.00 }; // Frames, children
-    // const bg_medium = gui.ImVec4{ .x = d63, .y = d63, .z = d63, .w = 1.00 }; // Frames, children
-    const bg_light = gui.ImVec4{ .x = 0.26, .y = 0.26, .z = 0.31, .w = 1.00 }; // Buttons, headers
-    // const bg_light = gui.ImVec4{ .x = d80, .y = d80, .z = d80, .w = 1.00 }; // Buttons, headers
-
-    const border = gui.ImVec4{ .x = 0.25, .y = 0.25, .z = 0.30, .w = 1.00 }; // #40404d
-    const text = gui.ImVec4{ .x = 0.85, .y = 0.85, .z = 0.88, .w = 1.00 }; // #d9d9e0
-    const text_dim = gui.ImVec4{ .x = 0.55, .y = 0.55, .z = 0.60, .w = 1.00 }; // #8c8c99
-    const accent_purple = gui.ImVec4{ .x = 0.58, .y = 0.44, .z = 0.86, .w = 1.00 }; // #9470db
-    const accent_purple_dim = gui.ImVec4{ .x = 0.48, .y = 0.34, .z = 0.76, .w = 0.80 }; // #7a57c2
-    const accent_blue = gui.ImVec4{ .x = 0.40, .y = 0.63, .z = 0.90, .w = 1.00 }; // #66a0e6
 
     // General configuration
     style.WindowPadding = .{ .x = 12, .y = 12 };
@@ -35,26 +28,27 @@ pub fn applyTheme() void {
     style.ItemSpacing = .{ .x = 8, .y = 6 };
     style.ItemInnerSpacing = .{ .x = 6, .y = 6 };
     style.TouchExtraPadding = .{ .x = 0, .y = 0 };
-    style.IndentSpacing = 20.0;
-    style.ScrollbarSize = 14.0;
-    style.GrabMinSize = 10.0;
+    style.IndentSpacing = 20;
+    style.ScrollbarSize = 14;
+    style.GrabMinSize = 10;
 
     // Borders
-    style.WindowBorderSize = 0.0;
-    style.ChildBorderSize = 0.0;
-    style.PopupBorderSize = 1.0;
-    style.FrameBorderSize = 0.0;
-    style.TabBorderSize = 0.0;
+    style.WindowBorderSize = 0;
+    style.ChildBorderSize = 0;
+    style.PopupBorderSize = 1;
+    style.FrameBorderSize = 0;
+    style.TabBorderSize = 0;
+    style.TabBarBorderSize = 0;
 
     // Roundings
-    style.WindowRounding = 8.0;
-    style.ChildRounding = 6.0;
-    style.FrameRounding = 5.0;
-    style.PopupRounding = 6.0;
-    style.ScrollbarRounding = 9.0;
-    style.GrabRounding = 5.0;
-    style.LogSliderDeadzone = 4.0;
-    style.TabRounding = 6.0;
+    style.WindowRounding = 0;
+    style.ChildRounding = 0;
+    style.FrameRounding = 0;
+    style.PopupRounding = 0;
+    style.ScrollbarRounding = 9;
+    style.GrabRounding = 5;
+    style.LogSliderDeadzone = 4;
+    style.TabRounding = 0;
 
     // Alignment
     style.WindowTitleAlign = .{ .x = 0.5, .y = 0.5 };
@@ -102,10 +96,10 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_ResizeGrip] = bg_light;
     colors[gui.ImGuiCol_ResizeGripHovered] = accent_purple_dim;
     colors[gui.ImGuiCol_ResizeGripActive] = accent_purple;
-    colors[gui.ImGuiCol_Tab] = bg_medium;
+    colors[gui.ImGuiCol_Tab] = bg_darker;
     colors[gui.ImGuiCol_TabHovered] = accent_purple_dim;
-    colors[gui.ImGuiCol_TabActive] = bg_light;
-    colors[gui.ImGuiCol_TabUnfocused] = bg_dark;
+    colors[gui.ImGuiCol_TabActive] = bg_dark;
+    colors[gui.ImGuiCol_TabUnfocused] = bg_darker;
     colors[gui.ImGuiCol_TabUnfocusedActive] = bg_medium;
     colors[gui.ImGuiCol_DockingPreview] = accent_purple_dim;
     colors[gui.ImGuiCol_DockingEmptyBg] = bg_very_dark;

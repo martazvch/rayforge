@@ -4,6 +4,7 @@ const c = @import("c");
 const sdl = c.sdl;
 const m = @import("math.zig").math;
 const App = @import("App.zig");
+const globals = @import("globals.zig");
 const fatal = @import("utils.zig").fatal;
 
 var app: App = undefined;
@@ -32,20 +33,18 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl.SDL_AppResult {
         };
     };
     is_debug = dbg;
-
-    app = .init(allocator);
-    app.bind();
+    App.init(allocator);
 
     return sdl.SDL_APP_CONTINUE;
 }
 
 fn sdlAppIterate(appstate: ?*anyopaque) !sdl.SDL_AppResult {
     _ = appstate;
-    return app.frame();
+    return App.frame();
 }
 
 fn sdlAppEvent(appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.SDL_AppResult {
-    return app.event_loop.process(appstate, event);
+    return globals.event_loop.process(appstate, event);
 }
 
 fn sdlAppQuit(appstate: ?*anyopaque, result: anyerror!sdl.SDL_AppResult) void {
@@ -61,7 +60,7 @@ fn sdlAppQuit(appstate: ?*anyopaque, result: anyerror!sdl.SDL_AppResult) void {
         );
     }
 
-    app.deinit();
+    globals.deinit();
 
     if (is_debug) {
         std.debug.assert(debug_allocator.deinit() == .ok);

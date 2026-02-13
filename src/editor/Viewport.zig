@@ -3,8 +3,7 @@ const c = @import("c");
 const gui = c.gui;
 const m = @import("../math.zig").zlm;
 const Rect = @import("../Rect.zig");
-const Pipeline = @import("../Pipeline.zig");
-const EventLoop = @import("../EventLoop.zig");
+const globals = @import("../globals.zig");
 
 rect: Rect,
 
@@ -20,11 +19,11 @@ pub fn setRect(self: *Self, rect: Rect) void {
     self.rect = rect;
 }
 
-pub fn render(self: *Self, pipeline: *Pipeline, event_loop: *EventLoop) void {
+pub fn render(self: *Self) void {
     const draw_list = gui.ImGui_GetBackgroundDrawList();
     const texture_ref: gui.ImTextureRef = .{
         ._TexData = null, // not used for user-defined texures
-        ._TexID = @intFromPtr(pipeline.viewport_texture.texture),
+        ._TexID = @intFromPtr(globals.pipeline.viewport_texture.texture),
     };
     gui.ImDrawList_AddImage(
         draw_list,
@@ -36,5 +35,5 @@ pub fn render(self: *Self, pipeline: *Pipeline, event_loop: *EventLoop) void {
         }, // bottom-right
     );
 
-    event_loop.setViewportState(gui.ImGui_IsWindowHovered(gui.ImGuiHoveredFlags_None));
+    globals.event_loop.setViewportState(gui.ImGui_IsWindowHovered(gui.ImGuiHoveredFlags_None));
 }

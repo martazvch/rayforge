@@ -1,5 +1,6 @@
 const c = @import("c");
 const gui = c.gui;
+const guiEx = c.guiEx;
 const math = @import("../math.zig");
 const m = math.zlm;
 const Sdf = @import("../sdf.zig");
@@ -18,11 +19,7 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     const sdf = scene.getSelectedSdf() orelse return;
     const meta = scene.getSelectedSdfMeta() orelse return;
 
-    // Collapsing header style: small arrow, no background
     gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
-    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Header, math.guiVec4Zero);
-    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_HeaderHovered, math.guiVec4Zero);
-    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_HeaderActive, math.guiVec4Zero);
 
     var pos: m.Vec3 = sdf.getPos();
     vec3Edit("Transform", &pos, 0.05, 0, 0, "%.2f");
@@ -42,7 +39,6 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
     operations(sdf);
     material(sdf);
 
-    gui.ImGui_PopStyleColorEx(3);
     gui.ImGui_PopStyleVar();
 }
 
@@ -57,7 +53,7 @@ fn resetableDragFloat(id: [*c]const u8, prop: *f32, speed: f32, min: f32, max: f
         defer gui.ImGui_PopID();
 
         gui.ImGui_SameLine();
-        if (gui.ImGui_ImageButton("reset", icons.reset.toImGuiRef(), .{ .x = icons.size, .y = icons.size })) {
+        if (gui.ImGui_ImageButton("reset", icons.reset.toImGuiRef(), icons.size_vec)) {
             prop.* = reset_val;
         }
     }
@@ -113,7 +109,7 @@ fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void 
     if (gui.ImGui_ImageButtonEx(
         name,
         icon.toImGuiRef(),
-        .{ .x = icons.size, .y = icons.size },
+        icons.size_vec,
         .{ .x = 0, .y = 0 },
         .{ .x = 1, .y = 1 },
         math.guiVec4Zero,
@@ -126,9 +122,41 @@ fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void 
 var picker_openned: bool = false;
 
 fn category(label: [*c]const u8) bool {
-    gui.ImGui_SetNextItemOpen(true, gui.ImGuiCond_Once);
-    const open = gui.ImGui_CollapsingHeader(label, 0);
-    return open;
+    gui.ImGui_Spacing();
+
+    // Persistent open state (default: open)
+    const id = gui.ImGui_GetID(label);
+    const p_open = gui.ImGuiStorage_GetBoolRef(gui.ImGui_GetStateStorage(), id, true);
+
+    const arrow_scale: f32 = 0.5;
+    const font_size = gui.ImGui_GetFontSize();
+    const arrow_space = font_size * arrow_scale + 4;
+
+    // Full-width button with left padding for arrow, no background
+    gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_ButtonTextAlign, .{ .x = 0, .y = 0.5 });
+    gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_FramePadding, .{ .x = arrow_space, .y = 0 });
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Button, math.guiVec4Zero);
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_ButtonHovered, math.guiVec4Zero);
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_ButtonActive, math.guiVec4Zero);
+
+    if (gui.ImGui_ButtonEx(label, .{ .x = -std.math.floatMin(f32), .y = 0 })) {
+        p_open.* = !p_open.*;
+    }
+
+    gui.ImGui_PopStyleColorEx(3);
+    gui.ImGui_PopStyleVarEx(2);
+
+    // Draw small arrow on the left (inside the button area)
+    const rect_min = gui.ImGui_GetItemRectMin();
+    const rect_max = gui.ImGui_GetItemRectMax();
+    const arrow_pos: gui.ImVec2 = .{
+        .x = rect_min.x - 6,
+        .y = rect_min.y + (rect_max.y - rect_min.y - font_size * arrow_scale) / 2.0,
+    };
+    const dir: gui.ImGuiDir = if (p_open.*) gui.ImGuiDir_Down else gui.ImGuiDir_Right;
+    guiEx.ImGui_RenderArrowEx(gui.ImGui_GetWindowDrawList(), arrow_pos, gui.ImGui_GetColorU32(gui.ImGuiCol_Text), dir, arrow_scale);
+
+    return p_open.*;
 }
 
 fn material(sdf: *Sdf.Sdf) void {

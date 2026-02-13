@@ -25,6 +25,7 @@ pub const guiEx = struct {
     pub extern fn ImGui_DockBuilderDockWindow(window_name: [*:0]const u8, node_id: gui.ImGuiID) void;
     pub extern fn ImGui_DockBuilderFinish(node_id: gui.ImGuiID) void;
     pub extern fn ImGui_SeparatorEx(flags: i32, thickness: f32) void;
+    pub extern fn ImGui_RenderArrowEx(draw_list: [*c]gui.ImDrawList, pos: gui.ImVec2, col: gui.ImU32, dir: gui.ImGuiDir, scale: f32) void;
 
     pub const ImGuiDockNodeFlags_DockSpace = 1 >> 10;
     pub const ImGuiSeparatorFlags_Vertical = 1 << 1;

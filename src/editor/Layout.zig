@@ -1,7 +1,9 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const c = @import("c");
 const gui = c.gui;
 const guiEx = c.guiEx;
+const math = @import("../math.zig");
 const rayUi = @import("../rayui.zig");
 const Rect = @import("../Rect.zig");
 const Scene = @import("../Scene.zig");
@@ -10,8 +12,13 @@ const Properties = @import("properties.zig");
 const Viewport = @import("Viewport.zig");
 const icons = @import("../icons.zig");
 const sdf = @import("../sdf.zig");
+const theme = @import("theme.zig");
+const Set = @import("../set.zig").Set;
+const globals = @import("../globals.zig");
+const TabBar = @import("TabBar.zig");
+const ToolBar = @import("ToolBar.zig");
+const oom = @import("../utils.zig").oom;
 
-const TOOLBAR_HEIGHT: f32 = 20;
 const STATUSBAR_HEIGHT: f32 = 22;
 const DEFAULT_PROPERTIES_WIDTH: f32 = 200;
 const DEFAULT_SCENE_WIDTH: f32 = 200;
@@ -19,7 +26,6 @@ const MIN_PANEL_WIDTH: f32 = 100;
 const MIN_VIEWPORT_WIDTH: f32 = 200;
 const MIN_PANEL_HEIGHT: f32 = 80;
 const SPLITTER_THICKNESS: f32 = 4;
-const BORDER_COLOR: u32 = 0xFF505050; // Gray border
 
 var menu_bar_height: f32 = 19;
 
@@ -33,17 +39,24 @@ var dragging_viewport_splitter: bool = false;
 var dragging_panel_splitter: bool = false;
 var dragging_horizontal_splitter: bool = false;
 
-pub fn render(scene: *Scene, viewport: *Viewport) void {
+tabbar: TabBar,
+
+const Self = @This();
+
+pub fn init() Self {
+    return .{
+        .tabbar = .init(),
+    };
+}
+
+pub fn deinit(self: *Self) void {
+    self.tabbar.deinit();
+}
+
+pub fn render(self: *Self, scene: *Scene, viewport: *Viewport) void {
     const vp = gui.ImGui_GetMainViewport();
     const work_pos = vp.*.WorkPos;
     const work_size = vp.*.WorkSize;
-    const icon_size: gui.ImVec2 = .{ .x = icons.size, .y = icons.size };
-
-    // Style: no rounding, no borders (we draw custom separators)
-    gui.ImGui_PushStyleVar(gui.ImGuiStyleVar_WindowRounding, 0.0);
-    gui.ImGui_PushStyleVar(gui.ImGuiStyleVar_FrameRounding, 0.0);
-    gui.ImGui_PushStyleVar(gui.ImGuiStyleVar_ChildRounding, 0.0);
-    gui.ImGui_PushStyleVar(gui.ImGuiStyleVar_WindowBorderSize, 0.0);
 
     var y_offset: f32 = work_pos.y;
 
@@ -82,53 +95,10 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
     const panel_height = work_size.y;
     const scene_h = panel_height * scene_height_ratio;
 
+    // Tab Bar
+    y_offset += self.tabbar.render(.{ .x = work_pos.x, .y = y_offset });
     // Toolbar
-    {
-        gui.ImGui_SetNextWindowPos(.{ .x = work_pos.x, .y = y_offset }, gui.ImGuiCond_Always);
-        gui.ImGui_SetNextWindowSize(.{ .x = viewport_width, .y = TOOLBAR_HEIGHT }, gui.ImGuiCond_Always);
-
-        const toolbar_flags = gui.ImGuiWindowFlags_NoTitleBar |
-            gui.ImGuiWindowFlags_NoResize |
-            gui.ImGuiWindowFlags_NoMove |
-            gui.ImGuiWindowFlags_NoScrollbar |
-            gui.ImGuiWindowFlags_NoSavedSettings |
-            gui.ImGuiWindowFlags_NoDocking;
-
-        gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_WindowPadding, .{ .x = 4, .y = 4 });
-        gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_ItemSpacing, .{ .x = 2, .y = 0 });
-        // Transparent button background
-        if (gui.ImGui_Begin("##Toolbar", null, toolbar_flags)) {
-            // Zoom buttons
-            if (gui.ImGui_Button("+")) {}
-            gui.ImGui_SameLine();
-            if (gui.ImGui_Button("-")) {}
-
-            // Vertical separator with spacing
-            gui.ImGui_SameLine();
-            rayUi.separatorVert(TOOLBAR_HEIGHT, BORDER_COLOR, 2, 8);
-            gui.ImGui_SameLine();
-
-            // Shape buttons — draggable into viewport
-            shapeButton("##Sphere", icons.sphere.toImGuiRef(), icon_size, .sphere);
-            gui.ImGui_SameLine();
-            shapeButton("##Box", icons.cube.toImGuiRef(), icon_size, .box);
-            gui.ImGui_SameLine();
-            shapeButton("##Cylinder", icons.cylinder.toImGuiRef(), icon_size, .cylinder);
-            gui.ImGui_SameLine();
-            shapeButton("##Torus", icons.torus.toImGuiRef(), icon_size, .torus);
-
-            // Fullscreen toggle at far right
-            gui.ImGui_SameLine();
-            const avail = gui.ImGui_GetContentRegionAvail();
-            const button_width: f32 = 32;
-            gui.ImGui_SetCursorPosX(gui.ImGui_GetCursorPosX() + avail.x - button_width);
-            if (gui.ImGui_ImageButton("##Fullscreen", icons.fullscreen.toImGuiRef(), icon_size)) {
-                // Toggle fullscreen
-            }
-        }
-        gui.ImGui_End();
-        gui.ImGui_PopStyleVarEx(2);
-    }
+    y_offset += ToolBar.render(.{ .x = work_pos.x, .y = y_offset });
 
     // Status Bar
     {
@@ -156,11 +126,11 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
     viewport.setRect(.{
         .pos = .{
             .x = work_pos.x,
-            .y = y_offset + TOOLBAR_HEIGHT,
+            .y = y_offset,
         },
         .size = .{
             .x = viewport_width,
-            .y = status_y - (y_offset + TOOLBAR_HEIGHT),
+            .y = status_y - y_offset,
         },
     });
 
@@ -183,7 +153,7 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
     gui.ImGui_SetNextWindowSize(.{ .x = scene_width, .y = scene_h }, gui.ImGuiCond_Always);
     SceneTree.render(scene, panel_flags);
 
-    // Chunks panel
+    // Modifiers panel
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y + scene_h }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = scene_width, .y = panel_height - scene_h }, gui.ImGuiCond_Always);
     if (gui.ImGui_Begin("Modifiers", null, panel_flags)) {}
@@ -191,9 +161,6 @@ pub fn render(scene: *Scene, viewport: *Viewport) void {
 
     // Handle splitters and draw borders
     handleSplitters(work_pos, work_size, viewport_width, properties_width, scene_width, panel_y, panel_height, scene_h);
-
-    // Pop the 4 main style vars
-    gui.ImGui_PopStyleVarEx(4);
 }
 
 fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: f32, properties_width: f32, scene_width: f32, panel_y: f32, panel_height: f32, scene_h: f32) void {
@@ -210,21 +177,21 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
         draw_list,
         .{ .x = work_pos.x + viewport_width, .y = panel_y },
         .{ .x = work_pos.x + viewport_width, .y = work_pos.y + work_size.y },
-        BORDER_COLOR,
+        theme.border_color,
     );
     // Border: Properties | Scene (stop at bottom)
     gui.ImDrawList_AddLine(
         draw_list,
         .{ .x = work_pos.x + viewport_width + properties_width, .y = panel_y },
         .{ .x = work_pos.x + viewport_width + properties_width, .y = work_pos.y + work_size.y },
-        BORDER_COLOR,
+        theme.border_color,
     );
     // Border: Scene | Chunks (horizontal)
     gui.ImDrawList_AddLine(
         draw_list,
         .{ .x = work_pos.x + viewport_width + properties_width, .y = panel_y + scene_h },
         .{ .x = work_pos.x + work_size.x, .y = panel_y + scene_h },
-        BORDER_COLOR,
+        theme.border_color,
     );
 
     // === Splitter: Viewport | Properties ===
@@ -294,15 +261,5 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     } else if (h_hovered) {
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeNS);
         // gui.ImDrawList_AddRectFilled(draw_list, h_splitter_min, h_splitter_max, 0x40FFFFFF);
-    }
-}
-
-fn shapeButton(id: [*c]const u8, icon: gui.ImTextureRef, size: gui.ImVec2, kind: sdf.Kind) void {
-    _ = gui.ImGui_ImageButton(id, icon, size);
-
-    if (gui.ImGui_BeginDragDropSource(0)) {
-        _ = gui.ImGui_SetDragDropPayload("NEW_SHAPE", &kind, @sizeOf(sdf.Kind), 0);
-        gui.ImGui_Image(icon, size);
-        gui.ImGui_EndDragDropSource();
     }
 }

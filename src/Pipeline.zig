@@ -8,10 +8,9 @@ const Shader = @import("Shader.zig");
 const Scene = @import("Scene.zig");
 const Camera = @import("Camera.zig");
 const EventLoop = @import("EventLoop.zig");
+const globals = @import("globals.zig");
 const fatal = @import("utils.zig").fatal;
 
-window: *sdl.SDL_Window,
-device: *sdl.SDL_GPUDevice,
 shader: Shader,
 vertex_buffer: *sdl.SDL_GPUBuffer,
 index_buffer: *sdl.SDL_GPUBuffer,
@@ -243,9 +242,10 @@ pub fn init(allocator: Allocator) Self {
         fatal("failed to create graphics pipeline: {s}", .{sdl.SDL_GetError()});
     };
 
+    globals.device = device;
+    globals.window = window;
+
     return .{
-        .device = device,
-        .window = window,
         .shader = shader,
         .index_buffer = index_buffer,
         .vertex_buffer = vertex_buffer,
@@ -257,13 +257,13 @@ pub fn init(allocator: Allocator) Self {
 }
 
 pub fn deinit(self: *Self) void {
-    self.shader.deinit(self.device);
+    self.shader.deinit(globals.device);
 
-    sdl.SDL_ReleaseGPUGraphicsPipeline(self.device, self.pipeline);
-    sdl.SDL_ReleaseGPUBuffer(self.device, self.vertex_buffer);
-    sdl.SDL_ReleaseGPUTransferBuffer(self.device, self.scene_trans_buffer);
-    sdl.SDL_DestroyGPUDevice(self.device);
-    sdl.SDL_DestroyWindow(self.window);
+    sdl.SDL_ReleaseGPUGraphicsPipeline(globals.device, self.pipeline);
+    sdl.SDL_ReleaseGPUBuffer(globals.device, self.vertex_buffer);
+    sdl.SDL_ReleaseGPUTransferBuffer(globals.device, self.scene_trans_buffer);
+    sdl.SDL_DestroyGPUDevice(globals.device);
+    sdl.SDL_DestroyWindow(globals.window);
 }
 
 fn makeViewportTexture(device: *sdl.SDL_GPUDevice, window: *sdl.SDL_Window, width: u32, height: u32) ViewportTexture {
@@ -301,24 +301,18 @@ pub fn resizeViewport(self: *Self, width: u32, height: u32) void {
 // Applies any pending resize from previous frame
 fn applyPendingResize(self: *Self) void {
     if (self.pending_viewport_size) |size| {
-        sdl.SDL_ReleaseGPUTexture(self.device, self.viewport_texture.texture);
-        self.viewport_texture = makeViewportTexture(self.device, self.window, size.width, size.height);
+        sdl.SDL_ReleaseGPUTexture(globals.device, self.viewport_texture.texture);
+        self.viewport_texture = makeViewportTexture(globals.device, globals.window, size.width, size.height);
         self.pending_viewport_size = null;
     }
 }
 
-pub fn frame(
-    self: *Self,
-    scene: *Scene,
-    camera: *const Camera,
-    editor: *Editor,
-    event_loop: *EventLoop,
-) !sdl.SDL_AppResult {
+pub fn frame(self: *Self) !sdl.SDL_AppResult {
     self.applyPendingResize();
 
     // A render pass is a GPU operation where you're drawing things to a texture (called the "render target")
     // Can't read from and write to the same texture within the same render pass
-    const cmd_buffer = sdl.SDL_AcquireGPUCommandBuffer(self.device) orelse {
+    const cmd_buffer = sdl.SDL_AcquireGPUCommandBuffer(globals.device) orelse {
         fatal("unable to acquire command buffer: {s}", .{sdl.SDL_GetError()});
     };
 
@@ -328,16 +322,14 @@ pub fn frame(
             fatal("failed to begin copy pass: {s}", .{sdl.SDL_GetError()});
         };
 
-        // self.updateSceneBuffer(scene);
-
-        const data_ptr = sdl.SDL_MapGPUTransferBuffer(self.device, self.scene_trans_buffer, false) orelse {
+        const data_ptr = sdl.SDL_MapGPUTransferBuffer(globals.device, self.scene_trans_buffer, false) orelse {
             fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
         };
-        const src_bytes = @as([*]const u8, @ptrCast(&scene.shader_data));
+        const src_bytes = @as([*]const u8, @ptrCast(&globals.scene.shader_data));
         const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
         @memcpy(dst_bytes[0..@sizeOf(Scene.ShaderSdfData)], src_bytes[0..@sizeOf(Scene.ShaderSdfData)]);
 
-        sdl.SDL_UnmapGPUTransferBuffer(self.device, self.scene_trans_buffer);
+        sdl.SDL_UnmapGPUTransferBuffer(globals.device, self.scene_trans_buffer);
 
         // Upload the data
         sdl.SDL_UploadToGPUBuffer(
@@ -412,15 +404,15 @@ pub fn frame(
 
         // Camera uniform
         {
-            const cam_vecs = camera.toVec4();
+            const cam_vecs = globals.camera.toVec4();
 
             const uniform_data: UniformData = .{
                 .resolution = .new(
                     @floatFromInt(self.viewport_texture.width),
                     @floatFromInt(self.viewport_texture.height),
                 ),
-                .cam_pos = camera.pos,
-                .fov = camera.fov,
+                .cam_pos = globals.camera.pos,
+                .fov = globals.camera.fov,
                 .cam_right = cam_vecs.right,
                 .cam_up = cam_vecs.up,
                 .cam_forward = cam_vecs.forward,
@@ -440,7 +432,7 @@ pub fn frame(
     var swapchain_texture: ?*sdl.SDL_GPUTexture = undefined;
     var width: u32 = 0;
     var height: u32 = 0;
-    if (!sdl.SDL_WaitAndAcquireGPUSwapchainTexture(cmd_buffer, self.window, &swapchain_texture, &width, &height)) {
+    if (!sdl.SDL_WaitAndAcquireGPUSwapchainTexture(cmd_buffer, globals.window, &swapchain_texture, &width, &height)) {
         fatal("unable to acquire swapchain texture: {s}", .{sdl.SDL_GetError()});
     }
 
@@ -455,8 +447,8 @@ pub fn frame(
 
     // Second render pass
     {
-        editor.render(self, scene, camera, event_loop);
-        editor.prepareDrawData(cmd_buffer);
+        globals.editor.render();
+        globals.editor.prepareDrawData(cmd_buffer);
 
         const pass = sdl.SDL_BeginGPURenderPass(
             cmd_buffer,
@@ -472,7 +464,7 @@ pub fn frame(
             fatal("failed to begin render pass: {s}", .{sdl.SDL_GetError()});
         };
 
-        editor.renderDraw(cmd_buffer, pass);
+        globals.editor.renderDraw(cmd_buffer, pass);
         sdl.SDL_EndGPURenderPass(pass);
     }
 

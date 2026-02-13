@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayListUnmanaged;
+const Set = @import("set.zig").Set;
 
 pub const Id = enum(u16) {
     zero,
@@ -19,7 +20,7 @@ pub const Kind = union(enum) {
     sdf: Sdf,
 
     pub const Object = struct {
-        children: ArrayList(Id),
+        children: Set(Id),
         selected_sdf: ?Id,
 
         pub const empty: Object = .{
