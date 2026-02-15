@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const c = @import("c");
 const sdl = c.sdl;
+const builtin = @import("builtin");
 const m = @import("math.zig").zlm;
 const Editor = @import("editor/Editor.zig");
 const Shader = @import("Shader.zig");
@@ -62,7 +63,7 @@ pub fn init(allocator: Allocator) Self {
     };
     errdefer sdl.SDL_DestroyWindow(window);
 
-    const device = sdl.SDL_CreateGPUDevice(sdl.SDL_GPU_SHADERFORMAT_MSL, true, null) orelse {
+    const device = sdl.SDL_CreateGPUDevice(Shader.format, true, null) orelse {
         fatal("unable to create gpu device: {s}", .{sdl.SDL_GetError()});
     };
     errdefer sdl.SDL_DestroyGPUDevice(device);

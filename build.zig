@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -85,9 +86,16 @@ pub fn build(b: *std.Build) void {
     // ---------
     //  Shaders
     // ---------
-    var build_shaders = b.addSystemCommand(&.{"sh"});
-    build_shaders.addFileArg(b.path("build_shaders.sh"));
-    exe.step.dependOn(&build_shaders.step);
+    if (builtin.os.tag == .linux or builtin.os.tag == .macos) {
+        var build_shaders = b.addSystemCommand(&.{"sh"});
+        build_shaders.addFileArg(b.path("build_shaders.sh"));
+        exe.step.dependOn(&build_shaders.step);
+    } else if (builtin.os.tag == .windows) {
+        var build_shaders = b.addSystemCommand(&.{ "cmd.exe", "/C" });
+        build_shaders.addFileArg(b.path("build_shaders.bat"));
+        build_shaders.stdio = .inherit;
+        exe.step.dependOn(&build_shaders.step);
+    }
 
     // --------
     // For ZLS

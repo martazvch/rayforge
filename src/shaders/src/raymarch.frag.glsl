@@ -3,7 +3,7 @@
 layout(location = 0) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
-layout(std140, set = 1, binding = 0) uniform CameraBlock {
+layout(std140, set = 3, binding = 0) uniform CameraBlock {
     vec2 resolution;
     vec2 _pad;
     vec3 cam_pos;
@@ -24,7 +24,7 @@ struct SDFObject {
     float _pad[3];
 };
 
-layout(std430, set = 0, binding = 0) readonly buffer SceneBlock {
+layout(std430, set = 2, binding = 0) readonly buffer SceneBlock {
     uint object_count;
     uint _pad2[3];
     SDFObject objects[];

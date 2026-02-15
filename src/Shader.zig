@@ -9,6 +9,20 @@ frag: *sdl.SDL_GPUShader,
 
 const Self = @This();
 
+pub const format = switch (builtin.os.tag) {
+    .linux => sdl.SDL_GPU_SHADERFORMAT_SPIRV,
+    .macos => sdl.SDL_GPU_SHADERFORMAT_MSL,
+    .windows => sdl.SDL_GPU_SHADERFORMAT_DXIL,
+    else => |os| fatal("unsupported OS: {}", .{os}),
+};
+
+const extension = switch (builtin.os.tag) {
+    .linux => "spv",
+    .macos => "msl",
+    .windows => "dxil",
+    else => @compileError("OS not supported"),
+};
+
 pub fn init(device: *sdl.SDL_GPUDevice, allocator: Allocator, comptime name: []const u8) Self {
     return .{
         .vert = createShader(device, allocator, name, .vert),
@@ -46,14 +60,7 @@ const ShaderInfo = struct {
 };
 
 fn createShader(device: *sdl.SDL_GPUDevice, allocator: Allocator, comptime name: []const u8, comptime stage: Stage) *sdl.SDL_GPUShader {
-    const ext = switch (builtin.os.tag) {
-        .macos => "msl",
-        .windows => "dxil",
-        .linux => "spv",
-        else => @compileError("OS not supported"),
-    };
-
-    const code_path = comptime getPath(name, ext, stage);
+    const code_path = comptime getPath(name, extension, stage);
     const code = @embedFile(code_path);
 
     const json_path = comptime getPath(name, "json", stage);
@@ -69,7 +76,7 @@ fn createShader(device: *sdl.SDL_GPUDevice, allocator: Allocator, comptime name:
         .code_size = code.len,
         // Metal specific entrypoint
         .entrypoint = if (builtin.os.tag == .macos) "main0" else "main",
-        .format = sdl.SDL_GPU_SHADERFORMAT_MSL,
+        .format = format,
         .stage = if (stage == .vert) sdl.SDL_GPU_SHADERSTAGE_VERTEX else sdl.SDL_GPU_SHADERSTAGE_FRAGMENT,
         .num_samplers = info.value.samplers,
         .num_storage_buffers = info.value.storage_buffers,
