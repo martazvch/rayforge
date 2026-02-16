@@ -3,7 +3,7 @@
 Rayforge is a 3D modeling software using only [SDF](https://iquilezles.org/articles/distfunctions) with [raymarching](https://en.wikipedia.org/wiki/Ray_marching) rendering.
 It is written in [Zig](https://ziglang.org/) and uses [SDL3_gpu](https://wiki.libsdl.org/SDL3/FrontPage) for 3D rendering and [ImGui](https://github.com/ocornut/imgui) for the UI.
 
-https://github.com/martazvch/rayforge/tree/main/docs/Showcase.png
+![Showcase](https://github.com/martazvch/rayforge/tree/main/docs/Showcase.png)
 
 ----
 
