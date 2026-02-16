@@ -4,6 +4,5 @@ zig-out
 .git
 imgui.ini
 .claude
-EDITOR_IMPLEMENTATION.zig
 CLAUDE.md
 
