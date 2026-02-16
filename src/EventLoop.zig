@@ -1,21 +1,36 @@
 const std = @import("std");
 const c = @import("c");
 const sdl = c.sdl;
-const m = @import("math.zig").zlm;
+const math = @import("math.zig");
+const m = math.zlm;
 const Viewport = @import("editor/Viewport.zig");
 const globals = @import("globals.zig");
 
 shift_pressed: bool,
 enable_cam: bool,
+enable_drag: ?Axis,
 viewport_hovered: bool,
+axis_hovered: ?Axis,
+/// Per-axis: screen-space direction and world-units-per-pixel ratio, set by drawGuizmo.
+axis_screen_dir: [3]m.Vec2,
+axis_world_per_px: [3]f32,
 
 const Self = @This();
+pub const Axis = enum {
+    x,
+    y,
+    z,
+};
 
 pub fn init() Self {
     return .{
         .shift_pressed = false,
         .enable_cam = false,
+        .enable_drag = null,
         .viewport_hovered = false,
+        .axis_hovered = null,
+        .axis_screen_dir = .{ .zero, .zero, .zero },
+        .axis_world_per_px = .{ 0, 0, 0 },
     };
 }
 
@@ -45,21 +60,27 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
         sdl.SDL_EVENT_MOUSE_BUTTON_UP => {
             if (event.button.button == sdl.SDL_BUTTON_MIDDLE) {
                 self.enable_cam = false;
+            } else if (event.button.button == sdl.SDL_BUTTON_LEFT) {
+                self.enable_drag = null;
             }
         },
         sdl.SDL_EVENT_MOUSE_BUTTON_DOWN => {
             if (event.button.button == sdl.SDL_BUTTON_MIDDLE and self.viewport_hovered) {
                 self.enable_cam = true;
             } else if (event.button.button == sdl.SDL_BUTTON_LEFT and self.viewport_hovered) {
-                const x = event.motion.x - globals.editor.viewport.rect.pos.x;
-                const y = event.motion.y - globals.editor.viewport.rect.pos.y;
-
-                const ray = globals.camera.screenToRay(x, y, globals.editor.viewport.rect.size);
-
-                if (globals.scene.raymarch(ray.ro, ray.rd)) |hit| {
-                    globals.scene.selectNode(hit.node_id);
+                if (self.axis_hovered) |axis| {
+                    self.enable_drag = axis;
                 } else {
-                    globals.scene.selected = null;
+                    const x = event.motion.x - globals.editor.viewport.rect.pos.x;
+                    const y = event.motion.y - globals.editor.viewport.rect.pos.y;
+
+                    const ray = globals.camera.screenToRay(x, y, globals.editor.viewport.rect.size);
+
+                    if (globals.scene.raymarch(ray.ro, ray.rd)) |hit| {
+                        globals.scene.selectNode(hit.node_id);
+                    } else {
+                        globals.scene.selected = null;
+                    }
                 }
             }
         },
@@ -98,6 +119,21 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
                 } else {
                     globals.camera.rotate(x, y);
                 }
+            } else if (self.enable_drag) |axis| {
+                const s = globals.scene.getSelectedSdf().?;
+                const i = @intFromEnum(axis);
+                const d = self.axis_screen_dir[i];
+                // Project mouse delta onto screen-space axis direction
+                const mouse_delta = m.Vec2.new(event.motion.xrel, event.motion.yrel);
+                const px_along_axis = mouse_delta.dot(d);
+                // Convert screen pixels to world units
+                const world_delta = px_along_axis * self.axis_world_per_px[i];
+                // Apply along the world-space axis direction
+                const units = [_]m.Vec3{ .unitX, .unitY, .unitZ };
+                const world_dir = math.mulMat4Vec3(s.transform.transpose(), units[i]);
+                s.transform.fields[3][0] += world_dir.x * world_delta;
+                s.transform.fields[3][1] += world_dir.y * world_delta;
+                s.transform.fields[3][2] += world_dir.z * world_delta;
             }
         },
         else => {},

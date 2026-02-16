@@ -25,7 +25,7 @@ pub fn vec3FromSlice(slice: *const [3]f32) zlm.Vec3 {
 }
 
 /// Transforms a Vec3 by the 3x3 rotation part of a Mat4 (row-major, v*M convention)
-pub fn mulMat4Vec3(v: zlm.Vec3, mat: zlm.Mat4) zlm.Vec3 {
+pub fn mulMat4Vec3(mat: zlm.Mat4, v: zlm.Vec3) zlm.Vec3 {
     const f = mat.fields;
     return .{
         .x = v.x * f[0][0] + v.y * f[1][0] + v.z * f[2][0],

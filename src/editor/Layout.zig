@@ -123,14 +123,15 @@ pub fn render(self: *Self, scene: *Scene, viewport: *Viewport) void {
     }
 
     // Viewport region
+    // TODO: investigate this 12 offset
     viewport.setRect(.{
         .pos = .{
             .x = work_pos.x,
-            .y = y_offset,
+            .y = y_offset + 12,
         },
         .size = .{
             .x = viewport_width,
-            .y = status_y - y_offset,
+            .y = status_y - y_offset - 12,
         },
     });
 
