@@ -1,12 +1,7 @@
 const c = @import("c");
 const gui = c.gui;
 const rayUi = @import("../rayui.zig");
-const math = @import("../math.zig");
-const tab_mod = @import("scene_tab.zig");
-const sdf = @import("../sdf.zig");
 const icons = @import("../icons.zig");
-const Tab = tab_mod.Tab;
-const Manager = tab_mod.Manager;
 const theme = @import("theme.zig");
 const globals = @import("../globals.zig");
 
@@ -40,15 +35,6 @@ pub fn render(pos: gui.ImVec2) f32 {
         rayUi.separatorVert(height, theme.border_color, 2, 8);
         gui.ImGui_SameLine();
 
-        // Shape buttons — draggable into viewport
-        shapeButton("##Sphere", icons.sphere.toImGuiRef(), icons.size_vec, .sphere);
-        gui.ImGui_SameLine();
-        shapeButton("##Box", icons.cube.toImGuiRef(), icons.size_vec, .box);
-        gui.ImGui_SameLine();
-        shapeButton("##Cylinder", icons.cylinder.toImGuiRef(), icons.size_vec, .cylinder);
-        gui.ImGui_SameLine();
-        shapeButton("##Torus", icons.torus.toImGuiRef(), icons.size_vec, .torus);
-
         // Fullscreen toggle at far right
         gui.ImGui_SameLine();
         const avail = gui.ImGui_GetContentRegionAvail();
@@ -62,14 +48,4 @@ pub fn render(pos: gui.ImVec2) f32 {
     gui.ImGui_PopStyleVarEx(2);
 
     return height;
-}
-
-fn shapeButton(id: [*c]const u8, icon: gui.ImTextureRef, size: gui.ImVec2, kind: sdf.Kind) void {
-    _ = gui.ImGui_ImageButton(id, icon, size);
-
-    if (gui.ImGui_BeginDragDropSource(0)) {
-        _ = gui.ImGui_SetDragDropPayload("NEW_SHAPE", &kind, @sizeOf(sdf.Kind), 0);
-        gui.ImGui_Image(icon, size);
-        gui.ImGui_EndDragDropSource();
-    }
 }

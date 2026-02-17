@@ -5,6 +5,8 @@ const math = @import("../math.zig");
 const Scene = @import("../Scene.zig");
 const icons = @import("../icons.zig");
 const Node = @import("../Node.zig");
+const Texture = @import("../Texture.zig");
+const sdf_mod = @import("../sdf.zig");
 const oom = @import("../utils.zig").oom;
 
 pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
@@ -16,17 +18,13 @@ pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
 }
 
 fn header(scene: *Scene) void {
-    // gui.ImGui_Text("Scene");
-    // gui.ImGui_SameLine();
-
-    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Button, math.guiVec4Zero);
+    gui.ImGui_SameLine();
     if (gui.ImGui_Button("+")) {
-        // gui.ImGui_OpenPopup("AddObjectPopup", 0);
-        scene.addObject();
+        gui.ImGui_OpenPopup("AddObjectPopup", 0);
     }
     gui.ImGui_SameLine();
-    if (gui.ImGui_Button("-")) {
-        //
+    if (gui.ImGui_Button("&")) {
+        // Will be used to instanciate other scenes
     }
     gui.ImGui_SameLine();
     if (gui.ImGui_Button("v")) {
@@ -36,25 +34,58 @@ fn header(scene: *Scene) void {
     if (gui.ImGui_Button("^")) {
         //
     }
-    gui.ImGui_PopStyleColor();
 
-    // if (gui.ImGui_BeginPopup("AddObjectPopup", 0)) {
-    //     if (gui.ImGui_MenuItem("Sphere")) {
-    //         scene.addSdf("Sphere", .sphere, .new(1.0, 0.0, 0.0, 0.0));
-    //     }
-    //     if (gui.ImGui_MenuItem("Box")) {
-    //         scene.addSdf("Box", .box, .new(1.0, 1.0, 1.0, 0.0));
-    //     }
-    //     if (gui.ImGui_MenuItem("Cylinder")) {
-    //         scene.addSdf("Cylinder", .cylinder, .new(1.0, 1.0, 0.0, 0.0));
-    //     }
-    //     if (gui.ImGui_MenuItem("Torus")) {
-    //         scene.addSdf("Torus", .torus, .new(1.0, 0.3, 0.0, 0.0));
-    //     }
-    //     gui.ImGui_EndPopup();
-    // }
+    if (gui.ImGui_BeginPopup("AddObjectPopup", 0)) {
+        addMenu(scene);
+        gui.ImGui_EndPopup();
+    }
 
     gui.ImGui_Separator();
+}
+
+fn addMenu(scene: *Scene) void {
+    const items = .{
+        .{ "Object", icons.object },
+    };
+
+    inline for (items) |item| {
+        if (iconMenuItem(item[0], item[1])) {
+            scene.addObject();
+        }
+    }
+
+    gui.ImGui_Separator();
+
+    const shapes = .{
+        .{ "Sphere", icons.sphere, sdf_mod.Kind.sphere },
+        .{ "Box", icons.cube, sdf_mod.Kind.box },
+        .{ "Cylinder", icons.cylinder, sdf_mod.Kind.cylinder },
+        .{ "Torus", icons.torus, sdf_mod.Kind.torus },
+    };
+
+    inline for (shapes) |item| {
+        if (iconMenuItem(item[0], item[1])) {
+            scene.addSdf(item[2]);
+        }
+    }
+}
+
+fn iconMenuItem(label: [*c]const u8, icon: Texture) bool {
+    gui.ImGui_PushID(label);
+    defer gui.ImGui_PopID();
+
+    const start_x = gui.ImGui_GetCursorPosX();
+    const start_y = gui.ImGui_GetCursorPosY();
+    // Selectable covers the full row (hover + click + popup close)
+    const selected = gui.ImGui_SelectableEx("##hidden", false, 0, .{ .x = 0, .y = icons.size });
+    // Go back and draw icon + label on top
+    gui.ImGui_SameLine();
+    gui.ImGui_SetCursorPosX(start_x);
+    gui.ImGui_SetCursorPosY(start_y);
+    gui.ImGui_Image(icon.toImGuiRef(), icons.size_vec);
+    gui.ImGui_SameLine();
+    gui.ImGui_Text(label);
+    return selected;
 }
 
 var renaming: ?Node.Id = null;

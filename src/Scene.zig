@@ -9,6 +9,7 @@ const sdf = @import("sdf.zig");
 const Sdf = sdf.Sdf;
 const oom = @import("utils.zig").oom;
 const Node = @import("Node.zig");
+const globals = @import("globals.zig");
 
 arena: std.heap.ArenaAllocator,
 allocator: Allocator,
@@ -131,8 +132,14 @@ pub fn addSdf(self: *Self, kind: sdf.Kind) void {
         .torus => .new(1.0, 0.3, 0.0, 0.0),
     };
 
+    var transform: m.Mat4 = .identity;
+    const pivot = globals.camera.pivot;
+    transform.fields[3][0] = pivot.x;
+    transform.fields[3][1] = pivot.y;
+    transform.fields[3][2] = pivot.z;
+
     self.shader_data.sdfs[shader_id] = .{
-        .transform = .identity,
+        .transform = transform,
         .params = params,
         .scale = 1,
         .kind = kind,
