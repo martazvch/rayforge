@@ -7,9 +7,13 @@ const Viewport = @import("editor/Viewport.zig");
 const globals = @import("globals.zig");
 
 shift_pressed: bool,
-enable_cam: bool,
-enable_drag: ?Axis,
 viewport_hovered: bool,
+
+// Cam
+enable_cam: bool,
+
+// Axis
+enable_drag: ?Axis,
 axis_hovered: ?Axis,
 /// Per-axis: screen-space direction and world-units-per-pixel ratio, set by drawGuizmo.
 axis_screen_dir: [3]m.Vec2,
@@ -29,8 +33,8 @@ pub fn init() Self {
         .enable_drag = null,
         .viewport_hovered = false,
         .axis_hovered = null,
-        .axis_screen_dir = .{ .zero, .zero, .zero },
-        .axis_world_per_px = .{ 0, 0, 0 },
+        .axis_screen_dir = @splat(.zero),
+        .axis_world_per_px = @splat(0),
     };
 }
 
@@ -74,7 +78,7 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
                     const x = event.motion.x - globals.editor.viewport.rect.pos.x;
                     const y = event.motion.y - globals.editor.viewport.rect.pos.y;
 
-                    const ray = globals.camera.screenToRay(x, y, globals.editor.viewport.rect.size);
+                    const ray = globals.camera.screenToRay(x, y);
 
                     if (globals.scene.raymarch(ray.ro, ray.rd)) |hit| {
                         globals.scene.selectNode(hit.node_id);

@@ -11,7 +11,7 @@ pub const zero: Self = .{
 };
 
 pub fn ratio(self: Self) f32 {
-    return self.pos.x / self.pos.y;
+    return self.size.x / self.size.y;
 }
 
 pub fn isIn(self: Self, x: f32, y: f32) bool {

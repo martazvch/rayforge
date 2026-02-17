@@ -1,4 +1,6 @@
 const m = @import("math.zig").zlm;
+const Rect = @import("Rect.zig");
+const globals = @import("globals.zig");
 const d2r = m.toRadians;
 
 pos: m.Vec3,
@@ -9,6 +11,12 @@ pitch: f32,
 fov: f32,
 pivot: m.Vec3,
 distance: f32,
+
+// Cached matrices, recomputed lazily when dirty
+view: m.Mat4,
+proj: m.Mat4,
+dirty: bool,
+cached_aspect: f32,
 
 const Self = @This();
 const UP = m.Vec3.unitY;
@@ -24,6 +32,10 @@ pub fn init() Self {
         .fov = d2r(45),
         .pivot = .zero,
         .distance = 20,
+        .view = .identity,
+        .proj = .identity,
+        .dirty = true,
+        .cached_aspect = 0,
     };
     self.orbit();
 
@@ -37,9 +49,9 @@ pub fn toVec4(self: Self) struct { right: m.Vec4, up: m.Vec4, forward: m.Vec4 } 
     const up = right.cross(forward).normalize();
 
     return .{
-        .right = .{ .x = right.x, .y = right.y, .z = right.z, .w = 0 },
-        .up = .{ .x = up.x, .y = up.y, .z = up.z, .w = 0 },
-        .forward = .{ .x = forward.x, .y = forward.y, .z = forward.z, .w = 0 },
+        .right = .new(right.x, right.y, right.z, 0),
+        .up = .new(up.x, up.y, up.z, 0),
+        .forward = .new(forward.x, forward.y, forward.z, 0),
     };
 }
 
@@ -49,9 +61,9 @@ pub fn toVec3(self: Self) struct { right: m.Vec3, up: m.Vec3, forward: m.Vec3 } 
     const up = right.cross(forward).normalize();
 
     return .{
-        .right = .{ .x = right.x, .y = right.y, .z = right.z },
-        .up = .{ .x = up.x, .y = up.y, .z = up.z },
-        .forward = .{ .x = forward.x, .y = forward.y, .z = forward.z },
+        .right = .new(right.x, right.y, right.z),
+        .up = .new(up.x, up.y, up.z),
+        .forward = .new(forward.x, forward.y, forward.z),
     };
 }
 
@@ -80,6 +92,19 @@ pub fn orbit(self: *Self) void {
     };
     self.pos = self.pivot.add(offset);
     self.dir = self.pivot.sub(self.pos).normalize();
+    self.dirty = true;
+}
+
+/// Recomputes view/proj matrices if camera or aspect ratio changed.
+/// Call this once per frame before using worldToScreen.
+fn updateMatrices(self: *Self) void {
+    const aspect = globals.editor.viewport.rect.ratio();
+    if (!self.dirty and aspect == self.cached_aspect) return;
+
+    self.view = .createLookAt(self.pos, self.pos.add(self.dir), UP);
+    self.proj = .createPerspective(self.fov, aspect, 0.1, 100.0);
+    self.cached_aspect = aspect;
+    self.dirty = false;
 }
 
 pub fn pan(self: *Self, dx: f32, dy: f32) void {
@@ -97,29 +122,50 @@ pub fn zoom(self: *Self, delta: f32) void {
     self.orbit();
 }
 
-// This makes the camera the origin looking toward dir
-pub fn getLookAt(self: *const Self) m.Mat4 {
-    return .createLookAt(self.pos, self.pos.add(self.dir), UP);
+/// Projects a 3D world point to a 2D ImGui screen position.
+/// Returns null if the point is behind the camera.
+pub fn worldToScreen(self: *Self, p: m.Vec3) ?[2]f32 {
+    self.updateMatrices();
+
+    // World → camera
+    const view_pos = m.Vec4.new(p.x, p.y, p.z, 1.0).transform(self.view);
+    // Camera to clip (x, y, z, w)
+    const clip = view_pos.transform(self.proj);
+
+    // Behind camera check
+    // w <= 0 means the point is behind or on the camera plane
+    // Projecting it would give nonsense (flipped/infinity)
+    if (clip.w <= 0.0001) return null;
+
+    // Clip → NDC (Normalized Device Coordinates)
+    // Divide by w. This is the "perspective divide"
+    // it's what makes far things smaller.
+    // NDC range: x,y between [-1, +1]
+    const ndcx = clip.x / clip.w;
+    const ndcy = clip.y / clip.w;
+
+    // NDC → Screen pixel (ImGui coordinates)
+    // NDC (-1,-1) = bottom-left, (+1,+1) = top-right
+    // Screen (0,0) = top-left, (w,h) = bottom-right
+    // So we flip Y
+    const vp = globals.editor.viewport.rect;
+    return .{
+        vp.pos.x + (ndcx * 0.5 + 0.5) * vp.size.x,
+        vp.pos.y + (1.0 - (ndcy * 0.5 + 0.5)) * vp.size.y,
+    };
 }
 
-pub fn getPerspective(self: *const Self, aspect: f32) m.Mat4 {
-    return .createPerspective(
-        self.fov,
-        aspect,
-        0.01,
-        100.0, // matches MAX_DIST in shader
-    );
-}
+pub fn screenToRay(camera: *const Self, mx: f32, my: f32) struct { ro: m.Vec3, rd: m.Vec3 } {
+    const vp = globals.editor.viewport.rect;
 
-pub fn screenToRay(camera: *const Self, mx: f32, my: f32, vp_size: m.Vec2) struct { ro: m.Vec3, rd: m.Vec3 } {
     // Same as shader: fragTexCoord * 2.0 - 1.0
     var uv = m.Vec2{
-        .x = (mx / vp_size.x) * 2.0 - 1.0,
-        .y = -((my / vp_size.y) * 2.0 - 1.0), // flip Y (screen Y is down)
+        .x = (mx / vp.size.x) * 2.0 - 1.0,
+        .y = -((my / vp.size.y) * 2.0 - 1.0), // flip Y (screen Y is down)
     };
 
     // Aspect ratio
-    uv.x *= vp_size.x / vp_size.y;
+    uv.x *= vp.ratio();
 
     // FOV
     const fov_factor = @tan(camera.fov * 0.5);

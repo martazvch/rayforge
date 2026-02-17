@@ -9,7 +9,6 @@ const theme = @import("theme.zig");
 const State = @import("State.zig");
 const Layout = @import("layout.zig");
 const Viewport = @import("Viewport.zig");
-const Projection = @import("../Projection.zig");
 const Rect = @import("../Rect.zig");
 const globals = @import("../globals.zig");
 const sdf = @import("../sdf.zig");
@@ -138,20 +137,19 @@ fn overlay(self: *const Self) void {
     );
     defer gui.ImDrawList_PopClipRect(drawlist);
 
-    const proj: Projection = .init(&globals.camera, vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
     const selected_sdf = globals.scene.getSelectedSdf() orelse return;
-    drawBoundingBox(drawlist, selected_sdf, proj);
-    drawGuizmo(drawlist, selected_sdf, proj);
+    drawBoundingBox(drawlist, selected_sdf);
+    drawGuizmo(drawlist, selected_sdf);
 }
 
-fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf, proj: Projection) void {
+fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
     const axis_len = 2;
     const selected_color = 0xFF00FFFF;
     const selection_thresh = 6;
     globals.event_loop.axis_hovered = null;
 
     const pos = selected_sdf.getPos();
-    const pos_proj = proj.worldToScreen(pos) orelse return;
+    const pos_proj = globals.camera.worldToScreen(pos) orelse return;
     const start: m.Vec2 = .new(pos_proj[0], pos_proj[1]);
 
     const axis_px_len: f32 = 100;
@@ -165,7 +163,7 @@ fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf, proj: 
     ) |unit_axis, color, i| {
         const axis = unit_axis.scale(axis_len);
         const axis_world = math.mulMat4Vec3(selected_sdf.transform.transpose(), axis).add(pos);
-        const axis_proj = proj.worldToScreen(axis_world) orelse continue;
+        const axis_proj = globals.camera.worldToScreen(axis_world) orelse continue;
 
         const raw = m.Vec2.new(axis_proj[0] - start.x, axis_proj[1] - start.y);
         const raw_len = raw.length();
@@ -220,7 +218,7 @@ fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf, proj: 
     }
 }
 
-fn drawBoundingBox(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf, proj: Projection) void {
+fn drawBoundingBox(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
     // Get local AABB (centered at origin), then transform each corner
     // by scale, rotation, and translation to get a proper OBB.
     const local_corners = selected_sdf.getLocalAABB().getCorners();
@@ -263,7 +261,7 @@ fn drawBoundingBox(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf, p
     // Project all 8 corners to screen space
     var corners: [8]?[2]f32 = undefined;
     for (0..8) |i| {
-        corners[i] = proj.worldToScreen(corners_3d[i]);
+        corners[i] = globals.camera.worldToScreen(corners_3d[i]);
     }
 
     // Each edge and which 2 faces it borders:
