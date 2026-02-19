@@ -13,31 +13,24 @@ const globals = @import("globals.zig");
 
 arena: std.heap.ArenaAllocator,
 allocator: Allocator,
-shader_data: ShaderSdfData,
+indices: ArrayList(u32),
+tombstones: ArrayList(u32),
+sdfs: [max_obj]Sdf,
 sdf_meta: [max_obj]sdf.Meta,
 nodes: ArrayList(Node),
 selected: ?Node.Id,
 current_obj: Node.Id,
 
 const Self = @This();
-const max_obj = 32;
-
-pub const ShaderSdfData = extern struct {
-    count: u32,
-    _pad: [3]u32 = undefined,
-    sdfs: [max_obj]Sdf,
-
-    pub const empty: ShaderSdfData = .{
-        .count = 0,
-        .sdfs = undefined,
-    };
-};
+pub const max_obj = 32;
 
 pub fn init(allocator: Allocator) Self {
     return .{
         .arena = .init(allocator),
         .allocator = undefined,
-        .shader_data = .empty,
+        .indices = .empty,
+        .tombstones = .empty,
+        .sdfs = undefined,
         .sdf_meta = undefined,
         .nodes = .empty,
         .selected = null,
@@ -76,7 +69,7 @@ pub fn selectNode(self: *Self, id: Node.Id) void {
 pub fn getSelectedSdf(self: *Self) ?*Sdf {
     const node = self.selected orelse return null;
     return switch (self.nodeKind(node)) {
-        .sdf => |sdf_node| &self.shader_data.sdfs[sdf_node.shader_id],
+        .sdf => |sdf_node| &self.sdfs[sdf_node.shader_id],
         else => null,
     };
 }
@@ -107,11 +100,7 @@ pub fn addObject(self: *Self) void {
         .prev_visible = true,
     };
 
-    _ = std.fmt.bufPrint(
-        &new_obj.name,
-        "object_{}",
-        .{obj.children.count()},
-    ) catch oom();
+    _ = std.fmt.bufPrint(&new_obj.name, "object", .{}) catch oom();
 
     {
         errdefer oom();
@@ -122,7 +111,7 @@ pub fn addObject(self: *Self) void {
 
 pub fn addSdf(self: *Self, kind: sdf.Kind) void {
     const node_id: Node.Id = .fromInt(self.nodes.items.len);
-    const shader_id = self.shader_data.count;
+    const shader_id = self.newSdfIndex();
     const parent = self.getCurrentObj();
 
     const params: m.Vec4 = switch (kind) {
@@ -132,13 +121,14 @@ pub fn addSdf(self: *Self, kind: sdf.Kind) void {
         .torus => .new(1.0, 0.3, 0.0, 0.0),
     };
 
+    // Centers the object where camera is looking
     var transform: m.Mat4 = .identity;
     const pivot = globals.camera.pivot;
     transform.fields[3][0] = pivot.x;
     transform.fields[3][1] = pivot.y;
     transform.fields[3][2] = pivot.z;
 
-    self.shader_data.sdfs[shader_id] = .{
+    self.sdfs[shader_id] = .{
         .transform = transform,
         .params = params,
         .scale = 1,
@@ -169,16 +159,31 @@ pub fn addSdf(self: *Self, kind: sdf.Kind) void {
         .visible = true,
         .prev_visible = true,
     };
-    self.shader_data.count += 1;
 
-    _ = std.fmt.bufPrint(
-        &new_obj.name,
-        "{t}_{}",
-        .{ kind, parent.children.count() },
-    ) catch oom();
+    _ = std.fmt.bufPrint(&new_obj.name, "{t}", .{kind}) catch oom();
 
     parent.children.add(self.allocator, node_id) catch oom();
     self.nodes.append(self.allocator, new_obj) catch oom();
+}
+
+fn newSdfIndex(self: *Self) u32 {
+    if (self.tombstones.pop()) |index| {
+        return index;
+    }
+
+    // TODO: proper logging
+    const count = self.indices.items.len;
+    if (count == max_obj) {
+        std.debug.print("reached maximum object count limit in the scene: {}", .{max_obj});
+    }
+
+    self.indices.append(self.allocator, @intCast(count)) catch oom();
+
+    return @intCast(count);
+}
+
+pub fn sdfCount(self: *const Self) u32 {
+    return @intCast(self.indices.items.len);
 }
 
 pub fn getNode(self: *Self, id: Node.Id) *Node {
@@ -191,7 +196,7 @@ fn getShaderSdfFromIndex(self: *Self, id: Node.Id) *Sdf {
 }
 
 fn getShaderSdfFromNode(self: *Self, sdf_node: Node.Kind.Sdf) *Sdf {
-    return &self.shader_data.sdfs[sdf_node.shader_id];
+    return &self.sdfs[sdf_node.shader_id];
 }
 
 /// Parent is assumed to be an object
@@ -233,9 +238,9 @@ pub fn reorder(self: *Self, parent: Node.Id, prev_id: Node.Id, child: Node.Id) v
     const old_sdf = self.nodeKind(prev_id).sdf;
     const new_sdf = self.nodeKind(child).sdf;
 
-    const tmp = self.shader_data.sdfs[old_sdf.shader_id];
-    self.shader_data.sdfs[old_sdf.shader_id] = self.shader_data.sdfs[new_sdf.shader_id];
-    self.shader_data.sdfs[new_sdf.shader_id] = tmp;
+    const tmp = self.sdfs[old_sdf.shader_id];
+    self.sdfs[old_sdf.shader_id] = self.sdfs[new_sdf.shader_id];
+    self.sdfs[new_sdf.shader_id] = tmp;
 }
 
 // TODO: add operations?
@@ -295,7 +300,7 @@ fn raymarchObj(self: *Self, obj: *const Node.Kind.Object, p: m.Vec3) RaymarchRes
 }
 
 fn raymarchSdf(self: *Self, sdf_node: Node.Kind.Sdf, p: m.Vec3) RaymarchRes {
-    const sdf_shader = &self.shader_data.sdfs[sdf_node.shader_id];
+    const sdf_shader = &self.sdfs[sdf_node.shader_id];
     return .{ .d = sdf_shader.evaluateSDF(p), .sdf = sdf_node };
 }
 
@@ -327,11 +332,11 @@ pub fn debug(self: *Self) void {
 }
 
 fn debugSetLastPos(self: *Self, pos: m.Vec3) void {
-    self.debugSetPos(self.shader_data.count - 1, pos);
+    self.debugSetPos(self.indices.getLast(), pos);
 }
 
 fn debugSetPos(self: *Self, index: usize, pos: m.Vec3) void {
-    const transform = &self.shader_data.sdfs[index].transform;
+    const transform = &self.sdfs[index].transform;
 
     transform.fields[3][0] = pos.x;
     transform.fields[3][1] = pos.y;

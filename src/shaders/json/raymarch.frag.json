@@ -1,1 +1,1 @@
-{ "samplers": 0, "storage_textures": 0, "storage_buffers": 1, "uniform_buffers": 1, "inputs": [{ "name": "fragTexCoord", "type": "float2", "location": 0 }], "outputs": [{ "name": "outColor", "type": "float4", "location": 0 }] }
+{ "samplers": 0, "storage_textures": 0, "storage_buffers": 2, "uniform_buffers": 2, "inputs": [{ "name": "fragTexCoord", "type": "float2", "location": 0 }], "outputs": [{ "name": "outColor", "type": "float4", "location": 0 }] }

@@ -11,6 +11,10 @@ layout(std140, set = 3, binding = 0) uniform CameraBlock {
     mat3 cam_rot;
 };
 
+layout(std140, set = 3, binding = 1) uniform SdfCount {
+    uint sdf_count;
+};
+
 struct SDFObject {
     mat4 transform;
     vec4 params;
@@ -24,11 +28,14 @@ struct SDFObject {
     float _pad[3];
 };
 
-layout(std430, set = 2, binding = 0) readonly buffer SceneBlock {
-    uint object_count;
-    uint _pad2[3];
+layout(std430, set = 2, binding = 0) readonly buffer Indices {
+    uint indices[];
+};
+
+layout(std430, set = 2, binding = 1) readonly buffer SdfBuffer {
     SDFObject objects[];
 };
+
 
 #define MAX_STEPS 80
 #define SHADOW_STEPS 80
@@ -116,7 +123,7 @@ SceneInfo getDist(vec3 p) {
     uint index = 0;
     uint obj_id = 0;
 
-    if (object_count == 0) {
+    if (sdf_count == 0) {
         return SceneInfo(MAX_DIST, 0);
     }
 
@@ -124,9 +131,8 @@ SceneInfo getDist(vec3 p) {
     float group_dist = MAX_DIST;
     uint group_index = 0;
 
-    // TODO: condition on 128 could be CPU side
-    for (uint i = 0; i < object_count && i < 128; ++i) {
-        SDFObject obj = objects[i];
+    for (uint i = 0; i < sdf_count; ++i) {
+        SDFObject obj = objects[indices[i]];
 
         // New object group → finalize previous group with union
         if (obj.obj_id != current_obj) {

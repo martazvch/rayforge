@@ -64,6 +64,11 @@ struct SceneInfo
     uint index;
 };
 
+struct SdfCount
+{
+    uint sdf_count;
+};
+
 struct SDFObject_1
 {
     float4x4 transform;
@@ -78,11 +83,14 @@ struct SDFObject_1
     float _pad[3];
 };
 
-struct SceneBlock
+struct SdfBuffer
 {
-    uint object_count;
-    uint _pad2[3];
     SDFObject_1 objects[1];
+};
+
+struct Indices
+{
+    uint indices[1];
 };
 
 struct CameraBlock
@@ -224,33 +232,33 @@ float applyOperation(thread const float& d1, thread const float& d2, thread cons
 }
 
 static inline __attribute__((always_inline))
-SceneInfo getDist(thread const float3& p, const device SceneBlock& _414)
+SceneInfo getDist(thread const float3& p, constant SdfCount& _410, const device SdfBuffer& _425, const device Indices& _445)
 {
     float result_dist = 100.0;
     uint index = 0u;
     uint obj_id = 0u;
-    if (_414.object_count == 0u)
+    if (_410.sdf_count == 0u)
     {
         return SceneInfo{ 100.0, 0u };
     }
-    uint current_obj = _414.objects[0].obj_id;
+    uint current_obj = _425.objects[0].obj_id;
     float group_dist = 100.0;
     uint group_index = 0u;
     SDFObject obj;
-    for (uint i = 0u; (i < _414.object_count) && (i < 128u); i++)
+    for (uint i = 0u; i < _410.sdf_count; i++)
     {
-        obj.transform = _414.objects[i].transform;
-        obj.params = _414.objects[i].params;
-        obj.kind = _414.objects[i].kind;
-        obj.op = _414.objects[i].op;
-        obj.smooth_factor = _414.objects[i].smooth_factor;
-        obj.scale = _414.objects[i].scale;
-        obj.color = float3(_414.objects[i].color);
-        obj.visible = short(_414.objects[i].visible != 0u);
-        obj.obj_id = _414.objects[i].obj_id;
-        obj._pad[0] = _414.objects[i]._pad[0];
-        obj._pad[1] = _414.objects[i]._pad[1];
-        obj._pad[2] = _414.objects[i]._pad[2];
+        obj.transform = _425.objects[_445.indices[i]].transform;
+        obj.params = _425.objects[_445.indices[i]].params;
+        obj.kind = _425.objects[_445.indices[i]].kind;
+        obj.op = _425.objects[_445.indices[i]].op;
+        obj.smooth_factor = _425.objects[_445.indices[i]].smooth_factor;
+        obj.scale = _425.objects[_445.indices[i]].scale;
+        obj.color = float3(_425.objects[_445.indices[i]].color);
+        obj.visible = short(_425.objects[_445.indices[i]].visible != 0u);
+        obj.obj_id = _425.objects[_445.indices[i]].obj_id;
+        obj._pad[0] = _425.objects[_445.indices[i]]._pad[0];
+        obj._pad[1] = _425.objects[_445.indices[i]]._pad[1];
+        obj._pad[2] = _425.objects[_445.indices[i]]._pad[2];
         if (obj.obj_id != current_obj)
         {
             if (group_dist < result_dist)
@@ -288,7 +296,7 @@ SceneInfo getDist(thread const float3& p, const device SceneBlock& _414)
 }
 
 static inline __attribute__((always_inline))
-SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, const device SceneBlock& _414)
+SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, constant SdfCount& _410, const device SdfBuffer& _425, const device Indices& _445)
 {
     float dO = 0.0;
     uint index = 0u;
@@ -296,20 +304,20 @@ SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread cons
     {
         float3 p = ro + (rd * dO);
         float3 param = p;
-        SceneInfo info = getDist(param, _414);
+        SceneInfo info = getDist(param, _410, _425, _445);
         dO += info.dist;
         index = info.index;
-        bool _613 = dO > maxDist;
-        bool _621;
-        if (!_613)
+        bool _617 = dO > maxDist;
+        bool _625;
+        if (!_617)
         {
-            _621 = abs(info.dist) < 0.001000000047497451305389404296875;
+            _625 = abs(info.dist) < 0.001000000047497451305389404296875;
         }
         else
         {
-            _621 = _613;
+            _625 = _617;
         }
-        if (_621)
+        if (_625)
         {
             break;
         }
@@ -318,23 +326,23 @@ SceneInfo rayMarch(thread const float3& ro, thread const float3& rd, thread cons
 }
 
 static inline __attribute__((always_inline))
-float3 getNormal(thread const float3& p, const device SceneBlock& _414)
+float3 getNormal(thread const float3& p, constant SdfCount& _410, const device SdfBuffer& _425, const device Indices& _445)
 {
     float3 param = p + float3(0.001000000047497451305389404296875, -0.001000000047497451305389404296875, -0.001000000047497451305389404296875);
     float3 param_1 = p + float3(-0.001000000047497451305389404296875, -0.001000000047497451305389404296875, 0.001000000047497451305389404296875);
     float3 param_2 = p + float3(-0.001000000047497451305389404296875, 0.001000000047497451305389404296875, -0.001000000047497451305389404296875);
     float3 param_3 = p + float3(0.001000000047497451305389404296875);
-    return fast::normalize((((float3(1.0, -1.0, -1.0) * getDist(param, _414).dist) + (float3(-1.0, -1.0, 1.0) * getDist(param_1, _414).dist)) + (float3(-1.0, 1.0, -1.0) * getDist(param_2, _414).dist)) + (float3(1.0) * getDist(param_3, _414).dist));
+    return fast::normalize((((float3(1.0, -1.0, -1.0) * getDist(param, _410, _425, _445).dist) + (float3(-1.0, -1.0, 1.0) * getDist(param_1, _410, _425, _445).dist)) + (float3(-1.0, 1.0, -1.0) * getDist(param_2, _410, _425, _445).dist)) + (float3(1.0) * getDist(param_3, _410, _425, _445).dist));
 }
 
 static inline __attribute__((always_inline))
-float shadowMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, const device SceneBlock& _414)
+float shadowMarch(thread const float3& ro, thread const float3& rd, thread const float& maxDist, constant SdfCount& _410, const device SdfBuffer& _425, const device Indices& _445)
 {
     float dO = 0.0;
     for (int i = 0; i < 80; i++)
     {
         float3 param = ro + (rd * dO);
-        float d = getDist(param, _414).dist;
+        float d = getDist(param, _410, _425, _445).dist;
         dO += d;
         if ((dO > maxDist) || (d < 0.001000000047497451305389404296875))
         {
@@ -345,18 +353,18 @@ float shadowMarch(thread const float3& ro, thread const float3& rd, thread const
 }
 
 static inline __attribute__((always_inline))
-float getLight(thread const float3& p, const device SceneBlock& _414)
+float getLight(thread const float3& p, constant SdfCount& _410, const device SdfBuffer& _425, const device Indices& _445)
 {
     float3 lightPos = float3(5.0, 5.0, -5.0);
     float3 l = fast::normalize(lightPos - p);
     float3 param = p;
-    float3 n = getNormal(param, _414);
+    float3 n = getNormal(param, _410, _425, _445);
     float dif = fast::clamp(dot(n, l), 0.0, 1.0);
     float lightDist = length(lightPos - p);
     float3 param_1 = p + ((n * 0.001000000047497451305389404296875) * 2.0);
     float3 param_2 = l;
     float param_3 = lightDist;
-    float shadow = shadowMarch(param_1, param_2, param_3, _414);
+    float shadow = shadowMarch(param_1, param_2, param_3, _410, _425, _445);
     if (shadow < lightDist)
     {
         dif *= 0.300000011920928955078125;
@@ -365,10 +373,10 @@ float getLight(thread const float3& p, const device SceneBlock& _414)
 }
 
 static inline __attribute__((always_inline))
-float4 getGridColorAA(thread const float3& p, constant CameraBlock& _720)
+float4 getGridColorAA(thread const float3& p, constant CameraBlock& _724)
 {
     float2 coord = p.xz;
-    float camDist = length(float3(_720.cam_pos) - p);
+    float camDist = length(float3(_724.cam_pos) - p);
     float distFade = 1.0 - smoothstep(40.0, 90.0, camDist);
     float2 dx = dfdx(coord);
     float2 dy = dfdy(coord);
@@ -394,15 +402,15 @@ float4 getGridColorAA(thread const float3& p, constant CameraBlock& _720)
     return float4(color, alpha);
 }
 
-fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _720 [[buffer(0)]], const device SceneBlock& _414 [[buffer(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _724 [[buffer(0)]], constant SdfCount& _410 [[buffer(1)]], const device Indices& _445 [[buffer(2)]], const device SdfBuffer& _425 [[buffer(3)]])
 {
     main0_out out = {};
     float2 uv = (in.fragTexCoord * 2.0) - float2(1.0);
-    uv.x *= (_720.resolution.x / _720.resolution.y);
-    float fov_factor = tan(_720.fov * 0.5);
+    uv.x *= (_724.resolution.x / _724.resolution.y);
+    float fov_factor = tan(_724.fov * 0.5);
     uv *= fov_factor;
-    float3 rd = fast::normalize(_720.cam_rot * float3(uv.x, uv.y, 1.0));
-    float3 ro = float3(_720.cam_pos);
+    float3 rd = fast::normalize(_724.cam_rot * float3(uv.x, uv.y, 1.0));
+    float3 ro = float3(_724.cam_pos);
     float gridT = 101.0;
     if (abs(rd.y) > 9.9999999747524270787835121154785e-07)
     {
@@ -415,14 +423,14 @@ fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _720 [[
     float3 param = ro;
     float3 param_1 = rd;
     float param_2 = 100.0;
-    SceneInfo info = rayMarch(param, param_1, param_2, _414);
+    SceneInfo info = rayMarch(param, param_1, param_2, _410, _425, _445);
     float3 col = float3(0.1500000059604644775390625, 0.1500000059604644775390625, 0.180000007152557373046875);
     if (info.dist < 100.0)
     {
         float3 p = ro + (rd * info.dist);
         float3 param_3 = p;
-        float light = getLight(param_3, _414);
-        float3 baseColor = float3(_414.objects[info.index].color);
+        float light = getLight(param_3, _410, _425, _445);
+        float3 baseColor = float3(_425.objects[info.index].color);
         col = (baseColor * light) + (baseColor * 0.100000001490116119384765625);
         col += float3(0.02999999932944774627685546875, 0.02999999932944774627685546875, 0.0500000007450580596923828125);
         col = powr(col, float3(0.4544999897480010986328125));
@@ -431,7 +439,7 @@ fragment main0_out main0(main0_in in [[stage_in]], constant CameraBlock& _720 [[
     {
         float3 p_1 = ro + (rd * gridT);
         float3 param_4 = p_1;
-        float4 grid = getGridColorAA(param_4, _720);
+        float4 grid = getGridColorAA(param_4, _724);
         col = mix(col, grid.xyz, float3(grid.w));
     }
     out.outColor = float4(col, 1.0);

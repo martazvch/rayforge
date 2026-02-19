@@ -13,8 +13,8 @@
             .hash = "zlm-0.1.0-LoZ6yDawAADMopilIe9MDzer0UqmruCy_PuhNv4OMc7c",
         },
         .zimgui = .{
-            .url = "git+https://github.com/martazvch/zimgui#35db8d91abba404e4a42bc6254684185af6e5879",
-            .hash = "zimgui-0.0.0-AmMy4eXkUgAWtF4IJpvhoHoPAvSu72TGs5CZlpUBFgE3",
+            .url = "git+https://github.com/martazvch/zimgui#7c6dc2dc454e8a9da2631781d60f9d740652312a",
+            .hash = "zimgui-0.0.0-AmMy4QLmUgBS5_AqhStO84Eupk7owLkvvEw9qju3sm5b",
         },
         .zstbi = .{
             .url = "git+https://github.com/martazvch/zstbi#51d1948d333931ba56ebe28152a3930cc0d74fd3",

@@ -8,15 +8,18 @@ const Editor = @import("editor/Editor.zig");
 const Shader = @import("Shader.zig");
 const Scene = @import("Scene.zig");
 const Camera = @import("Camera.zig");
+const sdf = @import("sdf.zig");
 const EventLoop = @import("EventLoop.zig");
 const globals = @import("globals.zig");
 const fatal = @import("utils.zig").fatal;
 
 shader: Shader,
-vertex_buffer: *sdl.SDL_GPUBuffer,
-index_buffer: *sdl.SDL_GPUBuffer,
-scene_buffer: *sdl.SDL_GPUBuffer,
-scene_trans_buffer: *sdl.SDL_GPUTransferBuffer,
+vp_vertex_buffer: *sdl.SDL_GPUBuffer,
+vp_index_buffer: *sdl.SDL_GPUBuffer,
+sdf_buffer: *sdl.SDL_GPUBuffer,
+sdf_trans_buffer: *sdl.SDL_GPUTransferBuffer,
+indices_buffer: *sdl.SDL_GPUBuffer,
+indices_trans_buffer: *sdl.SDL_GPUTransferBuffer,
 pipeline: *sdl.SDL_GPUGraphicsPipeline,
 viewport_texture: ViewportTexture,
 pending_viewport_size: ?struct { width: u32, height: u32 } = null,
@@ -45,16 +48,20 @@ const indices = [_]u16{
     2, 3, 0, // Second triangle
 };
 
-const UniformData = extern struct {
+const CameraUniform = extern struct {
     resolution: m.Vec2,
     _pad: [2]f32 = undefined,
 
     cam_pos: m.Vec3,
     fov: f32,
-    // mat3 is stored as 3 vec4 columns!
+    // mat3 is stored as 3 vec4 columns
     cam_right: m.Vec4, // right.x, right.y, right.z, PAD
     cam_up: m.Vec4, // up.x, up.y, up.z, PAD
     cam_forward: m.Vec4, // forward.x, forward.y, forward.z, PAD,
+};
+
+const SdfCountUniform = extern struct {
+    count: u32,
 };
 
 pub fn init(allocator: Allocator) Self {
@@ -73,7 +80,7 @@ pub fn init(allocator: Allocator) Self {
     }
 
     // Vertex buffer
-    const vertex_buffer = sdl.SDL_CreateGPUBuffer(
+    const vp_vertex_buffer = sdl.SDL_CreateGPUBuffer(
         device,
         &.{
             .size = @sizeOf(@TypeOf(vertices)),
@@ -84,22 +91,11 @@ pub fn init(allocator: Allocator) Self {
     };
 
     // Index buffer
-    const index_buffer = sdl.SDL_CreateGPUBuffer(
+    const vp_index_buffer = sdl.SDL_CreateGPUBuffer(
         device,
         &.{
             .size = @sizeOf(@TypeOf(indices)),
             .usage = sdl.SDL_GPU_BUFFERUSAGE_INDEX,
-        },
-    ) orelse {
-        fatal("failed to create buffer: {s}", .{sdl.SDL_GetError()});
-    };
-
-    // Scene buffer
-    const scene_buffer = sdl.SDL_CreateGPUBuffer(
-        device,
-        &.{
-            .size = @sizeOf(Scene.ShaderSdfData),
-            .usage = sdl.SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
         },
     ) orelse {
         fatal("failed to create buffer: {s}", .{sdl.SDL_GetError()});
@@ -130,16 +126,6 @@ pub fn init(allocator: Allocator) Self {
         sdl.SDL_UnmapGPUTransferBuffer(device, vertex_trans_buffer);
     }
 
-    const scene_trans_buffer = sdl.SDL_CreateGPUTransferBuffer(
-        device,
-        &.{
-            .size = @sizeOf(Scene.ShaderSdfData),
-            .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        },
-    ) orelse {
-        fatal("failed to create scene transfer buffer: {s}", .{sdl.SDL_GetError()});
-    };
-
     // Copy pass
     {
         const cmd_buffer = sdl.SDL_AcquireGPUCommandBuffer(device) orelse {
@@ -158,7 +144,7 @@ pub fn init(allocator: Allocator) Self {
 
         // Where to upload the data
         const region: sdl.SDL_GPUBufferRegion = .{
-            .buffer = vertex_buffer,
+            .buffer = vp_vertex_buffer,
             .size = @sizeOf(@TypeOf(vertices)),
             .offset = 0,
         };
@@ -173,7 +159,7 @@ pub fn init(allocator: Allocator) Self {
 
         // Where to upload the data
         const index_region: sdl.SDL_GPUBufferRegion = .{
-            .buffer = index_buffer,
+            .buffer = vp_index_buffer,
             .size = @sizeOf(@TypeOf(indices)),
             .offset = 0,
         };
@@ -186,6 +172,50 @@ pub fn init(allocator: Allocator) Self {
             fatal("failed to submit upload command buffer: {s}", .{sdl.SDL_GetError()});
         }
     }
+
+    // Indices buffer
+    const indices_buf_size = Scene.max_obj * @sizeOf(u32);
+    const indices_buffer = sdl.SDL_CreateGPUBuffer(
+        device,
+        &.{
+            .size = indices_buf_size,
+            .usage = sdl.SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+        },
+    ) orelse {
+        fatal("failed to create buffer: {s}", .{sdl.SDL_GetError()});
+    };
+
+    const indices_trans_buffer = sdl.SDL_CreateGPUTransferBuffer(
+        device,
+        &.{
+            .size = indices_buf_size,
+            .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        },
+    ) orelse {
+        fatal("failed to create scene transfer buffer: {s}", .{sdl.SDL_GetError()});
+    };
+
+    // Sdfs buffer
+    const sdf_buf_size = Scene.max_obj * @sizeOf(sdf.Sdf);
+    const sdf_buffer = sdl.SDL_CreateGPUBuffer(
+        device,
+        &.{
+            .size = sdf_buf_size,
+            .usage = sdl.SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+        },
+    ) orelse {
+        fatal("failed to create buffer: {s}", .{sdl.SDL_GetError()});
+    };
+
+    const sdf_trans_buffer = sdl.SDL_CreateGPUTransferBuffer(
+        device,
+        &.{
+            .size = sdf_buf_size,
+            .usage = sdl.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        },
+    ) orelse {
+        fatal("failed to create scene transfer buffer: {s}", .{sdl.SDL_GetError()});
+    };
 
     // Shaders
     const shader: Shader = .init(device, allocator, "raymarch");
@@ -248,10 +278,12 @@ pub fn init(allocator: Allocator) Self {
 
     return .{
         .shader = shader,
-        .index_buffer = index_buffer,
-        .vertex_buffer = vertex_buffer,
-        .scene_buffer = scene_buffer,
-        .scene_trans_buffer = scene_trans_buffer,
+        .vp_index_buffer = vp_index_buffer,
+        .vp_vertex_buffer = vp_vertex_buffer,
+        .sdf_buffer = sdf_buffer,
+        .sdf_trans_buffer = sdf_trans_buffer,
+        .indices_buffer = indices_buffer,
+        .indices_trans_buffer = indices_trans_buffer,
         .pipeline = pipeline,
         .viewport_texture = makeViewportTexture(device, window, 100, 100),
     };
@@ -261,8 +293,11 @@ pub fn deinit(self: *Self) void {
     self.shader.deinit(globals.device);
 
     sdl.SDL_ReleaseGPUGraphicsPipeline(globals.device, self.pipeline);
-    sdl.SDL_ReleaseGPUBuffer(globals.device, self.vertex_buffer);
-    sdl.SDL_ReleaseGPUTransferBuffer(globals.device, self.scene_trans_buffer);
+    sdl.SDL_ReleaseGPUBuffer(globals.device, self.vp_vertex_buffer);
+    sdl.SDL_ReleaseGPUBuffer(globals.device, self.sdf_buffer);
+    sdl.SDL_ReleaseGPUTransferBuffer(globals.device, self.sdf_trans_buffer);
+    sdl.SDL_ReleaseGPUBuffer(globals.device, self.indices_buffer);
+    sdl.SDL_ReleaseGPUTransferBuffer(globals.device, self.indices_trans_buffer);
     sdl.SDL_DestroyGPUDevice(globals.device);
     sdl.SDL_DestroyWindow(globals.window);
 }
@@ -323,29 +358,59 @@ pub fn frame(self: *Self) !sdl.SDL_AppResult {
             fatal("failed to begin copy pass: {s}", .{sdl.SDL_GetError()});
         };
 
-        const data_ptr = sdl.SDL_MapGPUTransferBuffer(globals.device, self.scene_trans_buffer, false) orelse {
-            fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
-        };
-        const src_bytes = @as([*]const u8, @ptrCast(&globals.scene.shader_data));
-        const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
-        @memcpy(dst_bytes[0..@sizeOf(Scene.ShaderSdfData)], src_bytes[0..@sizeOf(Scene.ShaderSdfData)]);
+        // Indices
+        {
+            const size: u32 = @intCast(globals.scene.indices.items.len * @sizeOf(u32));
+            const data_ptr = sdl.SDL_MapGPUTransferBuffer(globals.device, self.indices_trans_buffer, false) orelse {
+                fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
+            };
+            const src_bytes = @as([*]const u8, @ptrCast(globals.scene.indices.items.ptr));
+            const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
+            @memcpy(dst_bytes[0..size], src_bytes[0..size]);
 
-        sdl.SDL_UnmapGPUTransferBuffer(globals.device, self.scene_trans_buffer);
+            sdl.SDL_UnmapGPUTransferBuffer(globals.device, self.indices_trans_buffer);
 
-        // Upload the data
-        sdl.SDL_UploadToGPUBuffer(
-            pass,
-            &.{
-                .offset = 0,
-                .transfer_buffer = self.scene_trans_buffer,
-            },
-            &.{
-                .buffer = self.scene_buffer,
-                .size = @sizeOf(Scene.ShaderSdfData),
-                .offset = 0,
-            },
-            true,
-        );
+            sdl.SDL_UploadToGPUBuffer(
+                pass,
+                &.{
+                    .offset = 0,
+                    .transfer_buffer = self.indices_trans_buffer,
+                },
+                &.{
+                    .buffer = self.indices_buffer,
+                    .size = size,
+                    .offset = 0,
+                },
+                true,
+            );
+        }
+
+        // Sdf
+        {
+            const size: u32 = @intCast(globals.scene.sdfCount() * @sizeOf(sdf.Sdf));
+            const data_ptr = sdl.SDL_MapGPUTransferBuffer(globals.device, self.sdf_trans_buffer, false) orelse {
+                fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
+            };
+            const src_bytes = @as([*]const u8, @ptrCast(&globals.scene.sdfs));
+            const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
+            @memcpy(dst_bytes[0..size], src_bytes[0..size]);
+
+            sdl.SDL_UnmapGPUTransferBuffer(globals.device, self.sdf_trans_buffer);
+
+            sdl.SDL_UploadToGPUBuffer(
+                pass,
+                &.{
+                    .offset = 0,
+                    .transfer_buffer = self.sdf_trans_buffer,
+                },
+                &.{
+                    .buffer = self.sdf_buffer,
+                    .size = size,
+                    .offset = 0,
+                },
+                true,
+            );
+        }
 
         sdl.SDL_EndGPUCopyPass(pass);
     }
@@ -372,42 +437,42 @@ pub fn frame(self: *Self) !sdl.SDL_AppResult {
         // Binds the pipeline
         sdl.SDL_BindGPUGraphicsPipeline(pass, self.pipeline);
 
-        // Binds vertex buffer
+        // Binds vp vertex buffer
         sdl.SDL_BindGPUVertexBuffers(
             pass,
             0,
             &[_]sdl.SDL_GPUBufferBinding{
                 .{
-                    .buffer = self.vertex_buffer,
+                    .buffer = self.vp_vertex_buffer,
                     .offset = 0,
                 },
             },
             1,
         );
 
-        // Indices
+        // Vp indices
         sdl.SDL_BindGPUIndexBuffer(
             pass,
             &.{
-                .buffer = self.index_buffer,
+                .buffer = self.vp_index_buffer,
                 .offset = 0,
             },
             sdl.SDL_GPU_INDEXELEMENTSIZE_16BIT,
         );
 
-        // Bind le storage buffer
+        // Bind both storage buffers (indices at slot 0, sdfs at slot 1)
         sdl.SDL_BindGPUFragmentStorageBuffers(
             pass,
             0,
-            &self.scene_buffer,
-            1,
+            &[_]*sdl.SDL_GPUBuffer{ self.indices_buffer, self.sdf_buffer },
+            2,
         );
 
         // Camera uniform
         {
             const cam_vecs = globals.camera.toVec4();
 
-            const uniform_data: UniformData = .{
+            const uniform_data: CameraUniform = .{
                 .resolution = .new(
                     @floatFromInt(self.viewport_texture.width),
                     @floatFromInt(self.viewport_texture.height),
@@ -418,9 +483,18 @@ pub fn frame(self: *Self) !sdl.SDL_AppResult {
                 .cam_up = cam_vecs.up,
                 .cam_forward = cam_vecs.forward,
             };
-            sdl.SDL_PushGPUFragmentUniformData(cmd_buffer, 0, &uniform_data, @sizeOf(UniformData));
+            sdl.SDL_PushGPUFragmentUniformData(cmd_buffer, 0, &uniform_data, @sizeOf(CameraUniform));
         }
 
+        // Sdf count uniform
+        {
+            const uniform_data: SdfCountUniform = .{
+                .count = globals.scene.sdfCount(),
+            };
+            sdl.SDL_PushGPUFragmentUniformData(cmd_buffer, 1, &uniform_data, @sizeOf(SdfCountUniform));
+        }
+
+        // Draw the viewport quad
         sdl.SDL_DrawGPUIndexedPrimitives(pass, 6, 1, 0, 0, 0);
 
         sdl.SDL_EndGPURenderPass(pass);
@@ -492,12 +566,12 @@ fn updateSceneBuffer(self: *Self, scene: *const Scene) void {
         std.debug.print("\n", .{});
     }
 
-    const data_ptr = sdl.SDL_MapGPUTransferBuffer(self.device, self.scene_trans_buffer, false) orelse {
+    const data_ptr = sdl.SDL_MapGPUTransferBuffer(self.device, self.sdf_trans_buffer, false) orelse {
         fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
     };
     const src_bytes = @as([*]const u8, @ptrCast(&scene.shader_data));
     const dst_bytes = @as([*]u8, @ptrCast(data_ptr));
     @memcpy(dst_bytes[0..@sizeOf(Scene.ShaderSdfData)], src_bytes[0..@sizeOf(Scene.ShaderSdfData)]);
 
-    sdl.SDL_UnmapGPUTransferBuffer(self.device, self.scene_trans_buffer);
+    sdl.SDL_UnmapGPUTransferBuffer(self.device, self.sdf_trans_buffer);
 }
