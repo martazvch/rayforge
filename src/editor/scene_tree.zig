@@ -43,8 +43,40 @@ var renaming: ?Node.Id = null;
 var rename_just_started: bool = false;
 
 fn sceneTree(scene: *Scene) void {
-    for (scene.nodes.items[0].kind.object.children.keys()) |root| {
-        renderNode(scene, root);
+    const flags = gui.ImGuiTreeNodeFlags_DefaultOpen |
+        gui.ImGuiTreeNodeFlags_SpanAvailWidth |
+        gui.ImGuiTreeNodeFlags_AllowOverlap |
+        gui.ImGuiTreeNodeFlags_OpenOnArrow |
+        gui.ImGuiTreeNodeFlags_FramePadding |
+        gui.ImGuiTreeNodeFlags_DrawLinesToNodes;
+
+    if (gui.ImGui_TreeNodeEx("root", flags)) {
+        defer gui.ImGui_TreePop();
+
+        if (gui.ImGui_BeginDragDropTarget()) {
+            if (gui.ImGui_AcceptDragDropPayload("scene_node", 0)) |payload| {
+                const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
+                scene.reparent(source_id.*, .zero);
+            }
+            gui.ImGui_EndDragDropTarget();
+        }
+
+        for (scene.nodes.items[0].kind.object.children.keys()) |root| {
+            renderNode(scene, root);
+        }
+    }
+
+    // Drop zone: empty area below nodes reparents to root
+    const avail = gui.ImGui_GetContentRegionAvail();
+    if (avail.y > 0) {
+        _ = gui.ImGui_InvisibleButton("##root_drop", .{ .x = avail.x, .y = avail.y }, 0);
+        if (gui.ImGui_BeginDragDropTarget()) {
+            if (gui.ImGui_AcceptDragDropPayload("scene_node", 0)) |payload| {
+                const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
+                scene.reparent(source_id.*, .zero);
+            }
+            gui.ImGui_EndDragDropTarget();
+        }
     }
 }
 
@@ -78,9 +110,10 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     const open = gui.ImGui_TreeNodeEx("##node", flags);
 
     // Save tree node interaction state (resolved after eye button)
-    const tree_clicked = gui.ImGui_IsItemClicked();
-    const tree_hovered = gui.ImGui_IsItemHovered(0);
-    const tree_double_clicked = tree_hovered and gui.ImGui_IsMouseDoubleClicked(0);
+    const node_clicked = gui.ImGui_IsItemClicked();
+    const node_right_clicked = gui.ImGui_IsItemClickedEx(gui.ImGuiButtonFlags_MouseButtonRight);
+    const node_hovered = gui.ImGui_IsItemHovered(0);
+    const node_double_clicked = node_hovered and gui.ImGui_IsMouseDoubleClicked(0);
 
     // Drag and drop
     if (gui.ImGui_BeginDragDropSource(0)) {
@@ -95,13 +128,15 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
             const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
             if (!is_leaf) {
                 scene.reparent(source_id.*, id);
+                std.log.debug("Nop", .{});
             } else {
                 const source_node = scene.getNode(source_id.*);
                 if (source_node.parent != null and node.parent != null and source_node.parent.? == node.parent.?) {
                     scene.reorder(node.parent.?, source_id.*, id);
-                }
+                } else {}
             }
         }
+
         gui.ImGui_EndDragDropTarget();
     }
 
@@ -169,18 +204,22 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     gui.ImGui_PopStyleVar();
 
     // Selection: tree node clicked, but not on eye
-    if (tree_clicked and !eye_hovered) {
+    if (node_clicked and !eye_hovered) {
         scene.selectNode(id);
     }
 
     // Double-click to rename: only on icon+text area (not arrow, not eye)
-    if (tree_double_clicked and !eye_hovered) {
+    if (node_double_clicked and !eye_hovered) {
         // Arrow part
         const mouse_x = gui.ImGui_GetMousePos().x;
         if (mouse_x >= icon_min_x) {
             renaming = id;
             rename_just_started = true;
         }
+    }
+
+    if (node_right_clicked) {
+        rightClicMenu();
     }
 
     // Children
@@ -201,7 +240,7 @@ fn nodeIcon(scene: *const Scene, node: *const Node) gui.ImTextureRef {
     const texture = switch (node.kind) {
         .object => icons.object,
         .sdf => |index| icon: {
-            const sdf = scene.shader_data.sdfs[index.shader_id];
+            const sdf = scene.sdfs[index.shader_id];
             break :icon switch (sdf.kind) {
                 .sphere => icons.sphere,
                 .box => icons.cube,
@@ -221,7 +260,7 @@ fn toggleVisibility(scene: *Scene, node: *Node) void {
     const obj = switch (node.kind) {
         .object => |*obj| obj,
         .sdf => |sdf| {
-            scene.shader_data.sdfs[sdf.shader_id].visible = node.visible;
+            scene.sdfs[sdf.shader_id].visible = node.visible;
             return;
         },
     };
@@ -242,11 +281,11 @@ fn toggleObjectVisibility(scene: *Scene, node: *Node, obj: *Node.Kind.Object) vo
                 }
 
                 if (!node.visible) {
-                    meta.visible = scene.shader_data.sdfs[shader_id].visible;
-                    scene.shader_data.sdfs[shader_id].visible = false;
+                    meta.visible = scene.sdfs[shader_id].visible;
+                    scene.sdfs[shader_id].visible = false;
                     sdf_node.visible = false;
                 } else {
-                    scene.shader_data.sdfs[shader_id].visible = meta.visible;
+                    scene.sdfs[shader_id].visible = meta.visible;
                     sdf_node.visible = meta.visible;
                 }
             },
@@ -265,3 +304,5 @@ fn toggleObjectVisibility(scene: *Scene, node: *Node, obj: *Node.Kind.Object) vo
         }
     }
 }
+
+fn rightClicMenu() void {}
