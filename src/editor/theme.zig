@@ -28,23 +28,22 @@ pub fn applyTheme() void {
     style.ItemSpacing = .{ .x = 8, .y = 6 };
     style.ItemInnerSpacing = .{ .x = 6, .y = 6 };
     style.TouchExtraPadding = .{ .x = 0, .y = 0 };
-    style.IndentSpacing = 20;
     style.ScrollbarSize = 14;
     style.GrabMinSize = 10;
 
     // Borders
     style.WindowBorderSize = 0;
     style.ChildBorderSize = 0;
-    style.PopupBorderSize = 1;
+    style.PopupBorderSize = 2;
     style.FrameBorderSize = 0;
     style.TabBorderSize = 0;
     style.TabBarBorderSize = 0;
 
     // Roundings
     style.WindowRounding = 0;
-    style.ChildRounding = 0;
-    style.FrameRounding = 0;
-    style.PopupRounding = 0;
+    style.ChildRounding = 2;
+    style.FrameRounding = 4;
+    style.PopupRounding = 4;
     style.ScrollbarRounding = 9;
     style.GrabRounding = 5;
     style.LogSliderDeadzone = 4;
@@ -55,7 +54,6 @@ pub fn applyTheme() void {
     style.WindowMenuButtonPosition = gui.ImGuiDir_Left;
     style.ColorButtonPosition = gui.ImGuiDir_Right;
     style.ButtonTextAlign = .{ .x = 0.5, .y = 0.5 };
-    style.SelectableTextAlign = .{ .x = 0, .y = 0 };
 
     // Anti-aliasing
     style.AntiAliasedLines = true;
@@ -67,9 +65,9 @@ pub fn applyTheme() void {
     colors[gui.ImGuiCol_TextDisabled] = text_dim;
     colors[gui.ImGuiCol_WindowBg] = bg_dark;
     colors[gui.ImGuiCol_ChildBg] = bg_medium;
-    colors[gui.ImGuiCol_PopupBg] = bg_dark;
+    colors[gui.ImGuiCol_PopupBg] = bg_medium;
     colors[gui.ImGuiCol_Border] = border;
-    colors[gui.ImGuiCol_BorderShadow] = math.guiVec4Zero;
+    colors[gui.ImGuiCol_BorderShadow] = bg_dark;
     colors[gui.ImGuiCol_FrameBg] = bg_medium;
     colors[gui.ImGuiCol_FrameBgHovered] = bg_light;
     colors[gui.ImGuiCol_FrameBgActive] = .{ .x = 0.2, .y = 0.2, .z = 0.25, .w = 1 };
