@@ -7,7 +7,7 @@ const math = @import("../math.zig");
 const rayUi = @import("../rayui.zig");
 const Rect = @import("../Rect.zig");
 const Scene = @import("../Scene.zig");
-const SceneTree = @import("scene_tree.zig");
+const SceneTree = @import("SceneTree.zig");
 const Properties = @import("properties.zig");
 const Viewport = @import("Viewport.zig");
 const icons = @import("../icons.zig");
@@ -40,20 +40,23 @@ var dragging_panel_splitter: bool = false;
 var dragging_horizontal_splitter: bool = false;
 
 tabbar: TabBar,
+scene_tree: SceneTree,
 
 const Self = @This();
 
 pub fn init() Self {
     return .{
         .tabbar = .init(),
+        .scene_tree = .init(),
     };
 }
 
 pub fn deinit(self: *Self) void {
     self.tabbar.deinit();
+    self.scene_tree.deinit();
 }
 
-pub fn render(self: *Self, scene: *Scene, viewport: *Viewport) void {
+pub fn render(self: *Self, viewport: *Viewport) void {
     const vp = gui.ImGui_GetMainViewport();
     const work_pos = vp.*.WorkPos;
     const work_size = vp.*.WorkSize;
@@ -146,13 +149,13 @@ pub fn render(self: *Self, scene: *Scene, viewport: *Viewport) void {
     var panel_x = work_pos.x + viewport_width;
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = properties_width, .y = panel_height }, gui.ImGuiCond_Always);
-    Properties.render(scene, panel_flags);
+    Properties.render(panel_flags);
 
     // Scene panel
     panel_x = work_pos.x + viewport_width + properties_width;
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y }, gui.ImGuiCond_Always);
     gui.ImGui_SetNextWindowSize(.{ .x = scene_width, .y = scene_h }, gui.ImGuiCond_Always);
-    SceneTree.render(scene, panel_flags);
+    self.scene_tree.render(panel_flags);
 
     // Modifiers panel
     gui.ImGui_SetNextWindowPos(.{ .x = panel_x, .y = panel_y + scene_h }, gui.ImGuiCond_Always);

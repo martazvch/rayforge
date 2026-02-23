@@ -387,7 +387,8 @@ pub fn frame(self: *Self) !sdl.SDL_AppResult {
 
         // Sdf
         {
-            const size: u32 = @intCast(globals.scene.sdfCount() * @sizeOf(sdf.Sdf));
+            // TODO: maybe just copy the changed SDF
+            const size = Scene.max_obj * @sizeOf(sdf.Sdf);
             const data_ptr = sdl.SDL_MapGPUTransferBuffer(globals.device, self.sdf_trans_buffer, false) orelse {
                 fatal("unable to map transfer buffer data: {s}", .{sdl.SDL_GetError()});
             };

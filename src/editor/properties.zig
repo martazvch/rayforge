@@ -1,3 +1,4 @@
+const std = @import("std");
 const c = @import("c");
 const gui = c.gui;
 const guiEx = c.guiEx;
@@ -7,17 +8,17 @@ const Sdf = @import("../sdf.zig");
 const Scene = @import("../Scene.zig");
 const Texture = @import("../Texture.zig");
 const icons = @import("../icons.zig");
+const globals = @import("../globals.zig");
 
 const axis_labels = [3][*c]const u8{ "x", "y", "z" };
 const axis_drag_ids = [3][*c]const u8{ "##x", "##y", "##z" };
 
-const std = @import("std");
-pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
+pub fn render(flags: gui.ImGuiWindowFlags) void {
     defer gui.ImGui_End();
     if (!gui.ImGui_Begin("Properties", null, flags)) return;
 
-    const sdf = scene.getSelectedSdf() orelse return;
-    const meta = scene.getSelectedSdfMeta() orelse return;
+    const sdf = globals.scene.getSelectedSdf() orelse return;
+    const meta = globals.scene.getSelectedSdfMeta() orelse return;
 
     gui.ImGui_PushStyleVarImVec2(gui.ImGuiStyleVar_FramePadding, .{ .x = 0, .y = 0 });
 

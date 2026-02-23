@@ -100,7 +100,7 @@ pub fn render(self: *Self) void {
     self.newFrame();
 
     // Render layout and get viewport region
-    self.layout.render(&globals.scene, &self.viewport);
+    self.layout.render(&self.viewport);
 
     // Viewport
     _ = self.viewport.render();

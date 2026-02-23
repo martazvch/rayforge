@@ -4,7 +4,7 @@ const ArrayList = std.ArrayListUnmanaged;
 const Set = @import("set.zig").Set;
 
 pub const Id = enum(u16) {
-    zero,
+    root,
     _,
 
     pub fn fromInt(i: usize) Id {
@@ -34,7 +34,7 @@ pub const Kind = union(enum) {
         shader_id: usize,
 
         pub const empty: Sdf = .{
-            .node_id = .zero,
+            .node_id = .root,
             .shader_id = 0,
         };
     };
@@ -45,14 +45,14 @@ pub const name_size = 64;
 
 name: [name_size:0]u8,
 kind: Kind,
-parent: ?Id,
+parent: Id,
 visible: bool,
 prev_visible: bool,
 
 pub const root: Self = .{
     .name = @splat(0),
     .kind = .{ .object = .empty },
-    .parent = null,
+    .parent = .root,
     .visible = true,
     .prev_visible = true,
 };

@@ -34,7 +34,7 @@ pub fn init(allocator: Allocator) Self {
         .sdf_meta = undefined,
         .nodes = .empty,
         .selected = null,
-        .current_obj = .zero,
+        .current_obj = .root,
     };
 }
 
@@ -107,6 +107,9 @@ pub fn addObject(self: *Self) void {
         try obj.children.add(self.allocator, .fromInt(self.nodes.items.len));
         try self.nodes.append(self.allocator, new_obj);
     }
+
+    self.current_obj = .fromInt(self.nodes.items.len - 1);
+    self.selected = self.current_obj;
 }
 
 pub fn addSdf(self: *Self, kind: sdf.Kind) void {
@@ -168,6 +171,7 @@ pub fn addSdf(self: *Self, kind: sdf.Kind) void {
 
 fn newSdfIndex(self: *Self) u32 {
     if (self.tombstones.pop()) |index| {
+        self.indices.append(self.allocator, index) catch oom();
         return index;
     }
 
@@ -203,11 +207,11 @@ fn getShaderSdfFromNode(self: *Self, sdf_node: Node.Kind.Sdf) *Sdf {
 pub fn reparent(self: *Self, item: Node.Id, parent: Node.Id) void {
     const item_node = self.getNode(item);
 
-    if (item_node.parent.? == parent) {
+    if (item_node.parent == parent) {
         return;
     }
 
-    const old_parent = self.getNode(item_node.parent.?);
+    const old_parent = self.getNode(item_node.parent);
     _ = old_parent.kind.object.children.remove(item);
 
     item_node.parent = parent;
@@ -235,12 +239,38 @@ pub fn reorder(self: *Self, parent: Node.Id, prev_id: Node.Id, child: Node.Id) v
     keys[prev_index] = child;
     keys[new_index] = prev_id;
 
-    const old_sdf = self.nodeKind(prev_id).sdf;
-    const new_sdf = self.nodeKind(child).sdf;
+    var old_sdf = self.nodeKind(prev_id).sdf;
+    var new_sdf = self.nodeKind(child).sdf;
 
-    const tmp = self.sdfs[old_sdf.shader_id];
-    self.sdfs[old_sdf.shader_id] = self.sdfs[new_sdf.shader_id];
-    self.sdfs[new_sdf.shader_id] = tmp;
+    const tmp = old_sdf.shader_id;
+    old_sdf.shader_id = new_sdf.shader_id;
+    new_sdf.shader_id = tmp;
+}
+
+pub fn delete(self: *Self, id: Node.Id) void {
+    const node = self.getNode(id);
+    var parent = &self.getNode(node.parent).kind.object;
+    _ = parent.children.remove(id);
+
+    const index = switch (node.kind) {
+        .sdf => |s| s.shader_id,
+        .object => |obj| {
+            const count: usize = obj.children.count();
+            for (0..count) |i| {
+                self.delete(obj.children.keys()[count - i - 1]);
+            }
+            self.current_obj = node.parent;
+            return;
+        },
+    };
+    _ = self.indices.orderedRemove(index);
+    self.tombstones.append(self.allocator, @intCast(index)) catch oom();
+
+    if (self.selected) |selected| {
+        if (selected == id) {
+            self.selected = null;
+        }
+    }
 }
 
 // TODO: add operations?

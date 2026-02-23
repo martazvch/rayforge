@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 const c = @import("c");
 const gui = c.gui;
 const math = @import("../math.zig");
@@ -6,13 +7,52 @@ const Scene = @import("../Scene.zig");
 const icons = @import("../icons.zig");
 const Node = @import("../Node.zig");
 const theme = @import("theme.zig");
+const rayui = @import("../rayui.zig");
 const addObjPopup = @import("add_obj_popup.zig");
+const globals = @import("../globals.zig");
 const oom = @import("../utils.zig").oom;
 
-pub fn render(scene: *Scene, flags: gui.ImGuiWindowFlags) void {
+renaming: ?Node.Id,
+rename_just_started: bool,
+moves: ArrayList(Move),
+delete: ?Node.Id,
+
+const Move = union(enum) {
+    reorder: Reorder,
+    reparent: Reparent,
+
+    pub const Reorder = struct {
+        parent: Node.Id,
+        from: Node.Id,
+        to: Node.Id,
+    };
+    pub const Reparent = struct {
+        from: Node.Id,
+        to: Node.Id,
+    };
+};
+
+const Self = @This();
+
+pub fn init() Self {
+    return .{
+        .renaming = null,
+        .rename_just_started = false,
+        .moves = .empty,
+        .delete = null,
+    };
+}
+
+pub fn deinit(self: *Self) void {
+    self.moves.deinit(globals.allocator);
+}
+
+pub fn render(self: *Self, flags: gui.ImGuiWindowFlags) void {
     if (gui.ImGui_Begin("Scene", null, flags)) {
         header();
-        sceneTree(scene);
+        self.sceneTree();
+        self.processMoves();
+        self.processDelete();
     }
     gui.ImGui_End();
 }
@@ -39,10 +79,9 @@ fn header() void {
     gui.ImGui_Separator();
 }
 
-var renaming: ?Node.Id = null;
-var rename_just_started: bool = false;
+fn sceneTree(self: *Self) void {
+    const scene = &globals.scene;
 
-fn sceneTree(scene: *Scene) void {
     const flags = gui.ImGuiTreeNodeFlags_DefaultOpen |
         gui.ImGuiTreeNodeFlags_SpanAvailWidth |
         gui.ImGuiTreeNodeFlags_AllowOverlap |
@@ -56,13 +95,13 @@ fn sceneTree(scene: *Scene) void {
         if (gui.ImGui_BeginDragDropTarget()) {
             if (gui.ImGui_AcceptDragDropPayload("scene_node", 0)) |payload| {
                 const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
-                scene.reparent(source_id.*, .zero);
+                scene.reparent(source_id.*, .root);
             }
             gui.ImGui_EndDragDropTarget();
         }
 
-        for (scene.nodes.items[0].kind.object.children.keys()) |root| {
-            renderNode(scene, root);
+        for (scene.nodes.items[0].kind.object.children.keys()) |node| {
+            self.renderNode(scene, node);
         }
     }
 
@@ -73,14 +112,14 @@ fn sceneTree(scene: *Scene) void {
         if (gui.ImGui_BeginDragDropTarget()) {
             if (gui.ImGui_AcceptDragDropPayload("scene_node", 0)) |payload| {
                 const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
-                scene.reparent(source_id.*, .zero);
+                scene.reparent(source_id.*, .root);
             }
             gui.ImGui_EndDragDropTarget();
         }
     }
 }
 
-fn renderNode(scene: *Scene, id: Node.Id) void {
+fn renderNode(self: *Self, scene: *Scene, id: Node.Id) void {
     const node = scene.getNode(id);
 
     var flags = gui.ImGuiTreeNodeFlags_DefaultOpen |
@@ -105,13 +144,18 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     };
 
     // Hide the name to insert icon in-between
+    // Capture cursor X before TreeNodeEx: when the node is open, ImGui pushes an indent
+    // inside TreeNodeEx, making GetCursorPosX() return a shifted value that coincidentally
+    // places the icon correctly. When closed no indent is pushed, so using GetCursorPosX()
+    // after TreeNodeEx would place the icon on top of the arrow.
+    const pre_node_x = gui.ImGui_GetCursorPosX();
     gui.ImGui_PushID(&@intCast(id.toInt()));
     defer gui.ImGui_PopID();
     const open = gui.ImGui_TreeNodeEx("##node", flags);
 
     // Save tree node interaction state (resolved after eye button)
     const node_clicked = gui.ImGui_IsItemClicked();
-    const node_right_clicked = gui.ImGui_IsItemClickedEx(gui.ImGuiButtonFlags_MouseButtonRight);
+    const node_right_clicked = gui.ImGui_IsItemClickedEx(gui.ImGuiMouseButton_Right);
     const node_hovered = gui.ImGui_IsItemHovered(0);
     const node_double_clicked = node_hovered and gui.ImGui_IsMouseDoubleClicked(0);
 
@@ -126,14 +170,26 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     if (gui.ImGui_BeginDragDropTarget()) {
         if (gui.ImGui_AcceptDragDropPayload("scene_node", 0)) |payload| {
             const source_id: *const Node.Id = @ptrCast(@alignCast(payload.*.Data));
-            if (!is_leaf) {
-                scene.reparent(source_id.*, id);
-                std.log.debug("Nop", .{});
-            } else {
+            if (is_leaf) {
                 const source_node = scene.getNode(source_id.*);
-                if (source_node.parent != null and node.parent != null and source_node.parent.? == node.parent.?) {
-                    scene.reorder(node.parent.?, source_id.*, id);
-                } else {}
+
+                check: {
+                    // Can't reparent an object on a Sdf
+                    if (source_node.kind == .object) break :check;
+                    // To reoder, they must share the same parent
+                    if (source_node.parent != node.parent) break :check;
+
+                    self.moves.append(globals.allocator, .{ .reorder = .{
+                        .parent = source_node.parent,
+                        .from = source_id.*,
+                        .to = id,
+                    } }) catch oom();
+                }
+            } else {
+                self.moves.append(globals.allocator, .{ .reparent = .{
+                    .from = source_id.*,
+                    .to = id,
+                } }) catch oom();
             }
         }
 
@@ -141,10 +197,10 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     }
 
     // Icon
-    var node_start = gui.ImGui_GetCursorPosX();
-    if (is_leaf) {
-        node_start -= 12;
-    }
+    const node_start: f32 = if (is_leaf)
+        gui.ImGui_GetCursorPosX() - 12
+    else
+        pre_node_x + gui.ImGui_GetTreeNodeToLabelSpacing();
     gui.ImGui_SameLineEx(node_start, 0);
 
     const cursor_y = gui.ImGui_GetCursorPosY();
@@ -153,13 +209,13 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
     const icon_min_x = gui.ImGui_GetItemRectMin().x;
 
     gui.ImGui_SameLine();
-    if (renaming != null and renaming.? == id) {
+    if (self.renaming != null and self.renaming.? == id) {
         const avail = gui.ImGui_GetContentRegionAvail().x - icons.size;
         gui.ImGui_SetNextItemWidth(avail);
 
-        if (rename_just_started) {
+        if (self.rename_just_started) {
             gui.ImGui_SetKeyboardFocusHere();
-            rename_just_started = false;
+            self.rename_just_started = false;
         }
 
         const pad_y = gui.ImGui_GetStyle().*.FramePadding.y;
@@ -170,16 +226,15 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
             "##rename",
             &node.name,
             node.name.len,
-            gui.ImGuiInputTextFlags_EnterReturnsTrue |
-                gui.ImGuiInputTextFlags_AutoSelectAll,
+            gui.ImGuiInputTextFlags_EnterReturnsTrue | gui.ImGuiInputTextFlags_AutoSelectAll,
         )) {
-            renaming = null;
+            self.renaming = null;
         }
 
         gui.ImGui_PopStyleVar();
 
         if (gui.ImGui_IsItemDeactivated()) {
-            renaming = null;
+            self.renaming = null;
         }
     } else {
         gui.ImGui_Text(@ptrCast(&node.name));
@@ -213,21 +268,22 @@ fn renderNode(scene: *Scene, id: Node.Id) void {
         // Arrow part
         const mouse_x = gui.ImGui_GetMousePos().x;
         if (mouse_x >= icon_min_x) {
-            renaming = id;
-            rename_just_started = true;
+            self.renaming = id;
+            self.rename_just_started = true;
         }
     }
 
     if (node_right_clicked) {
-        rightClicMenu();
+        gui.ImGui_OpenPopup("RightClickObj", 0);
     }
+    self.rightClicMenu(id);
 
     // Children
     if (open) {
         switch (node.kind) {
             .object => |obj| {
-                for (obj.children.keys()) |child_id| {
-                    renderNode(scene, child_id);
+                for (obj.children.keys()) |child| {
+                    self.renderNode(scene, child);
                 }
             },
             .sdf => {},
@@ -253,7 +309,7 @@ fn nodeIcon(scene: *const Scene, node: *const Node) gui.ImTextureRef {
 }
 
 fn toggleVisibility(scene: *Scene, node: *Node) void {
-    if (scene.getNode(node.parent.?).visible) {
+    if (scene.getNode(node.parent).visible) {
         node.visible = !node.visible;
     }
 
@@ -305,4 +361,34 @@ fn toggleObjectVisibility(scene: *Scene, node: *Node, obj: *Node.Kind.Object) vo
     }
 }
 
-fn rightClicMenu() void {}
+fn rightClicMenu(self: *Self, id: Node.Id) void {
+    gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Border, theme.bg_light);
+    if (gui.ImGui_BeginPopup("RightClickObj", 0)) {
+        if (rayui.selectableIconLabel("Delete", icons.trash)) {
+            self.delete = id;
+        }
+
+        gui.ImGui_Separator();
+
+        gui.ImGui_EndPopup();
+    }
+
+    gui.ImGui_PopStyleColor();
+}
+
+fn processMoves(self: *Self) void {
+    for (self.moves.items) |move| {
+        switch (move) {
+            .reorder => |m| globals.scene.reorder(m.parent, m.from, m.to),
+            .reparent => |m| globals.scene.reparent(m.from, m.to),
+        }
+    }
+    self.moves.clearRetainingCapacity();
+}
+
+fn processDelete(self: *Self) void {
+    if (self.delete) |id| {
+        globals.scene.delete(id);
+        self.delete = null;
+    }
+}

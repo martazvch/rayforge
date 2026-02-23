@@ -25,6 +25,8 @@ pub var torus: Texture = undefined;
 pub var object: Texture = undefined;
 
 pub var reset: Texture = undefined;
+pub var trash: Texture = undefined;
+pub var rename: Texture = undefined;
 
 pub fn init(device: *sdl.SDL_GPUDevice) void {
     eye = .load(device, folder ++ "eye.png");
@@ -43,4 +45,6 @@ pub fn init(device: *sdl.SDL_GPUDevice) void {
 
     object = .load(device, folder ++ "object.png");
     reset = .load(device, folder ++ "reset.png");
+    trash = .load(device, folder ++ "trash.png");
+    rename = .load(device, folder ++ "rename.png");
 }
