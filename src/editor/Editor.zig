@@ -12,12 +12,14 @@ const Viewport = @import("Viewport.zig");
 const Rect = @import("../Rect.zig");
 const globals = @import("../globals.zig");
 const sdf = @import("../sdf.zig");
+const Manipulator = @import("../Manipulator.zig");
 const fatal = @import("../utils.zig").fatal;
 
 imio: *gui.ImGuiIO,
 state: State,
 layout: Layout,
 viewport: Viewport,
+manipulator: Manipulator,
 
 const Self = @This();
 
@@ -77,6 +79,7 @@ pub fn init() Self {
         .state = .init(),
         .layout = .init(),
         .viewport = .init(),
+        .manipulator = .init(),
     };
 }
 
@@ -139,7 +142,7 @@ fn overlay(self: *const Self) void {
 
     const selected_sdf = globals.scene.getSelectedSdf() orelse return;
     drawBoundingBox(drawlist, selected_sdf);
-    drawGuizmo(drawlist, selected_sdf);
+    // drawGuizmo(drawlist, selected_sdf);
 }
 
 fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
