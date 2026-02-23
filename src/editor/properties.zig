@@ -38,6 +38,7 @@ pub fn render(flags: gui.ImGuiWindowFlags) void {
 
     scale(sdf);
     operations(sdf);
+    geometry(sdf);
     material(sdf);
 
     gui.ImGui_PopStyleVar();
@@ -120,12 +121,69 @@ fn operation(name: [*c]const u8, icon: Texture, sdf: *Sdf.Sdf, op: Sdf.Op) void 
     }
 }
 
+fn geometry(sdf: *Sdf.Sdf) void {
+    if (!category("Geometry")) return;
+
+    switch (sdf.kind) {
+        .sphere => {
+            gui.ImGui_Text("Radius");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##Radius", &sdf.params.x, 0.005, 0.0001, 10_000, "%.3f", 1);
+        },
+        .box => {
+            gui.ImGui_Text("Side x");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##Sidex", &sdf.params.x, 0.005, 0.0001, 10_000, "%.3f", 1);
+            gui.ImGui_Text("Side y");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##Sidey", &sdf.params.y, 0.005, 0.0001, 10_000, "%.3f", 1);
+            gui.ImGui_Text("Side z");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##Sidez", &sdf.params.z, 0.005, 0.0001, 10_000, "%.3f", 1);
+        },
+        .cylinder => {
+            gui.ImGui_Text("Radius");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##Radius", &sdf.params.x, 0.005, 0.0001, 10_000, "%.3f", 1);
+            gui.ImGui_Text("Height");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##Height", &sdf.params.y, 0.005, 0.0001, 10_000, "%.3f", 1);
+        },
+        .torus => {
+            gui.ImGui_Text("Major radius");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##MajorRadius", &sdf.params.x, 0.005, 0.0001, 10_000, "%.3f", 1);
+            gui.ImGui_Text("Minor radius");
+            gui.ImGui_SameLine();
+            resetableDragFloat("##MinorRadius", &sdf.params.y, 0.005, 0.0001, 10_000, "%.3f", 0.3);
+        },
+    }
+}
+
 var picker_openned: bool = false;
+fn material(sdf: *Sdf.Sdf) void {
+    if (!category("Material")) return;
+
+    if (!picker_openned) {
+        if (gui.ImGui_ColorButton("##color", math.zlmVec4ToImGui(math.extendVec3(sdf.color, 1)), 0)) {
+            picker_openned = true;
+        }
+    } else {
+        if (gui.ImGui_ColorPicker3("picker", &sdf.color.x, 0)) {
+            //
+        }
+
+        // if (!gui.ImGui_IsItemHovered(0) and gui.ImGui_IsMouseClickedEx(gui.ImGuiMouseButton_Left, false)) {
+        if (!gui.ImGui_IsItemHovered(0)) {
+            picker_openned = false;
+        }
+    }
+}
 
 fn category(label: [*c]const u8) bool {
     gui.ImGui_Spacing();
 
-    // Persistent open state (default: open)
+    // Persistent open state
     const id = gui.ImGui_GetID(label);
     const p_open = gui.ImGuiStorage_GetBoolRef(gui.ImGui_GetStateStorage(), id, true);
 
@@ -158,23 +216,4 @@ fn category(label: [*c]const u8) bool {
     guiEx.ImGui_RenderArrowEx(gui.ImGui_GetWindowDrawList(), arrow_pos, gui.ImGui_GetColorU32(gui.ImGuiCol_Text), dir, arrow_scale);
 
     return p_open.*;
-}
-
-fn material(sdf: *Sdf.Sdf) void {
-    if (!category("Material")) return;
-
-    if (!picker_openned) {
-        if (gui.ImGui_ColorButton("##color", math.zlmVec4ToImGui(math.extendVec3(sdf.color, 1)), 0)) {
-            picker_openned = true;
-        }
-    } else {
-        if (gui.ImGui_ColorPicker3("picker", &sdf.color.x, 0)) {
-            //
-        }
-
-        // if (!gui.ImGui_IsItemHovered(0) and gui.ImGui_IsMouseClickedEx(gui.ImGuiMouseButton_Left, false)) {
-        if (!gui.ImGui_IsItemHovered(0)) {
-            picker_openned = false;
-        }
-    }
 }
