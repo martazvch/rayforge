@@ -194,14 +194,21 @@ SceneInfo rayMarch(vec3 ro, vec3 rd, float maxDist) {
 }
 
 // Marches from the point where light is casted to the light source
-float shadowMarch(vec3 ro, vec3 rd, float maxDist) {
-    float dO = 0.0;
-    for (int i = 0; i < SHADOW_STEPS; i++) {
-        float d = getDist(ro + rd * dO).dist;
-        dO += d;
-        if (dO > maxDist || d < SURF_DIST) break;
+// https://iquilezles.org/articles/rmshadows/
+// w: penumbra width — smaller = sharper shadows (try 0.05–0.2)
+float shadowMarch(vec3 ro, vec3 rd, float mint, float maxDist, float w) {
+    float res = 1.0;
+    float t = mint;
+
+    for (int i = 0; i < SHADOW_STEPS && t < maxDist; i++) {
+        float h = getDist(ro + rd * t).dist;
+        res = min(res, h / (w * t));
+        t += clamp(h, 0.005, 0.5);
+        if (res < -1.0) break;
     }
-    return dO;
+
+    res = max(res, -1.0);
+    return 0.25 * (1.0 + res) * (1.0 + res) * (2.0 - res);
 }
 
 // Lambertian diffuse
@@ -237,12 +244,10 @@ float getLight(vec3 p) {
     //              |  ← 0.002 offset
     // surface ─────●──────────
     //              p (could be 0.001 below)
-    float shadow = shadowMarch(p + n * SURF_DIST * 2.0, l, lightDist);
-    if (shadow < lightDist) {
-        // In reality, occluded surfaces still receive indirect light from bounces
-        // Using 0.3 fakes a soft ambient fill rather than making shadows pitch black
-        dif *= 0.3;
-    }
+    // shadow is in [0,1]: 0 = fully occluded, 1 = fully lit
+    // mix in a 0.2 ambient floor so shadowed areas aren't pitch black
+    float shadow = shadowMarch(p + n * SURF_DIST * 2.0, l, 0.001, lightDist, 0.1);
+    dif *= mix(0.2, 1.0, shadow);
 
     return dif;
 }
