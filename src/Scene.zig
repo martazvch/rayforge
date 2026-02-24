@@ -167,6 +167,7 @@ pub fn addSdf(self: *Self, kind: sdf.Kind) void {
 
     parent.children.add(self.allocator, node_id) catch oom();
     self.nodes.append(self.allocator, new_obj) catch oom();
+    self.selected = node_id;
 }
 
 fn newSdfIndex(self: *Self) u32 {
