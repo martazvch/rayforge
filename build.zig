@@ -62,7 +62,13 @@ pub fn build(b: *std.Build) void {
     c.linkLibrary(sdl_lib);
     c.linkLibrary(imgui_lib);
     c.linkLibrary(zstbi_lib);
+
+    c.addCSourceFile(.{
+        .file = b.path("vendor/tinyfiledialogs.c"),
+    });
+    c.addIncludePath(b.path("vendor"));
     exe.root_module.addImport("c", c);
+    exe.root_module.addIncludePath(b.path("vendor"));
 
     b.installArtifact(exe);
 

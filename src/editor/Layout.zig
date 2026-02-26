@@ -15,6 +15,7 @@ const sdf = @import("../sdf.zig");
 const theme = @import("theme.zig");
 const Set = @import("../set.zig").Set;
 const globals = @import("../globals.zig");
+const SavePopup = @import("save_popup.zig");
 const TabBar = @import("TabBar.zig");
 const ToolBar = @import("ToolBar.zig");
 const oom = @import("../utils.zig").oom;
@@ -38,6 +39,10 @@ var scene_height_ratio: f32 = 0.7;
 var dragging_viewport_splitter: bool = false;
 var dragging_panel_splitter: bool = false;
 var dragging_horizontal_splitter: bool = false;
+
+// Deferred popup open flags
+// https://github.com/ocornut/imgui/issues/5684
+var open_save_popup: bool = false;
 
 tabbar: TabBar,
 scene_tree: SceneTree,
@@ -68,7 +73,9 @@ pub fn render(self: *Self, viewport: *Viewport) void {
         if (gui.ImGui_BeginMenu("File")) {
             if (gui.ImGui_MenuItemEx("New", "Ctrl+N", false, true)) {}
             if (gui.ImGui_MenuItemEx("Open", "Ctrl+O", false, true)) {}
-            if (gui.ImGui_MenuItemEx("Save", "Ctrl+S", false, true)) {}
+            if (gui.ImGui_MenuItemEx("Save", "Ctrl+S", false, true)) {
+                open_save_popup = true;
+            }
             gui.ImGui_Separator();
             if (gui.ImGui_MenuItemEx("Exit", "Alt+F4", false, true)) {}
             gui.ImGui_EndMenu();
@@ -87,7 +94,15 @@ pub fn render(self: *Self, viewport: *Viewport) void {
         menu_bar_height = gui.ImGui_GetWindowHeight();
         gui.ImGui_EndMainMenuBar();
     }
+
     y_offset = menu_bar_height;
+
+    // Render popups outside the menu bar context
+    if (open_save_popup) {
+        gui.ImGui_OpenPopup(SavePopup.id, 0);
+        open_save_popup = false;
+    }
+    SavePopup.open();
 
     // Calculate layout dimensions
     const viewport_width = work_size.x - total_panel_width;

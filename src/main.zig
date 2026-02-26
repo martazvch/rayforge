@@ -35,6 +35,10 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl.SDL_AppResult {
     is_debug = dbg;
     App.init(allocator);
 
+    // if (builtin.mode != .Debug and builtin.os.tag == .macos) {
+    //     _ = std.posix.setenv("MTL_DEBUG_LAYER", "0", true);
+    // }
+
     return sdl.SDL_APP_CONTINUE;
 }
 

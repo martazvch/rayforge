@@ -10,6 +10,7 @@ const Sdf = sdf.Sdf;
 const oom = @import("utils.zig").oom;
 const Node = @import("Node.zig");
 const globals = @import("globals.zig");
+const Serializer = @import("Serializer.zig");
 
 arena: std.heap.ArenaAllocator,
 allocator: Allocator,
@@ -372,6 +373,11 @@ fn raymarchSdf(self: *Self, sdf_node: Node.Kind.Sdf, p: m.Vec3) RaymarchRes {
     return .{ .d = sdf_shader.evaluateSDF(p), .sdf = sdf_node };
 }
 
+pub fn save(self: *Self, path: []const u8) void {
+    var serializer: Serializer = .init();
+    serializer.serialize(path, self);
+}
+
 pub fn debug(self: *Self) void {
     self.selectNode(.fromInt(1));
     self.addSdf(.box);
@@ -395,8 +401,6 @@ pub fn debug(self: *Self) void {
 
     self.selectNode(.fromInt(0));
     self.addObject();
-
-    // self.serialize();
 }
 
 fn debugSetLastPos(self: *Self, pos: m.Vec3) void {
@@ -409,16 +413,4 @@ fn debugSetPos(self: *Self, index: usize, pos: m.Vec3) void {
     transform.fields[3][0] = pos.x;
     transform.fields[3][1] = pos.y;
     transform.fields[3][2] = pos.z;
-}
-
-fn serialize(self: *const Self) void {
-    errdefer oom();
-
-    const stringify = std.json.fmt(.{ .nodes = self.nodes.items }, .{});
-    std.log.debug("String: {any}", .{stringify.value});
-
-    var buf: [1024]u8 = undefined;
-    var w = std.fs.File.stdout().writer(&buf);
-    const ww = &w.interface;
-    std.log.debug("String: {any}", .{stringify.format(ww)});
 }
