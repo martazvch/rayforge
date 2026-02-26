@@ -149,6 +149,8 @@ fn updateRotate(self: *Self, current: m.Vec2) void {
     defer rebuildTransform(s, meta);
 
     const speed: f32 = 0.5;
+    // Resets for other axis, in case we switch axis axis between frames
+    meta.rotation = .zero;
 
     switch (self.axis) {
         .none => {
