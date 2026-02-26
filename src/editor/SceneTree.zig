@@ -251,7 +251,7 @@ fn renderNode(self: *Self, scene: *Scene, id: Node.Id) void {
 
     const eye_icon = if (node.visible) icons.eye else icons.eye_closed;
     if (gui.ImGui_ImageButton("##eye", eye_icon.toImGuiRef(), icons.size_vec)) {
-        toggleVisibility(scene, node);
+        toggleVisibility(scene, id, node);
     }
 
     const eye_hovered = gui.ImGui_IsItemHovered(0);
@@ -296,7 +296,7 @@ fn nodeIcon(scene: *const Scene, node: *const Node) gui.ImTextureRef {
     const texture = switch (node.kind) {
         .object => icons.object,
         .sdf => |index| icon: {
-            const sdf = scene.sdfs[index.shader_id];
+            const sdf = scene.sdfs.items[index.shader_id];
             break :icon switch (sdf.kind) {
                 .sphere => icons.sphere,
                 .box => icons.cube,
@@ -308,20 +308,26 @@ fn nodeIcon(scene: *const Scene, node: *const Node) gui.ImTextureRef {
     return texture.toImGuiRef();
 }
 
-fn toggleVisibility(scene: *Scene, node: *Node) void {
-    if (scene.getNode(node.parent).visible) {
-        node.visible = !node.visible;
+fn toggleVisibility(scene: *Scene, id: Node.Id, node: *Node) void {
+    if (!scene.getNode(node.parent).visible) {
+        return;
     }
 
-    const obj = switch (node.kind) {
-        .object => |*obj| obj,
-        .sdf => |sdf| {
-            scene.sdfs[sdf.shader_id].visible = node.visible;
-            return;
-        },
-    };
+    node.visible = !node.visible;
 
-    toggleObjectVisibility(scene, node, obj);
+    if (!node.visible) {
+        if (scene.selected) |selected| if (id == selected) {
+            globals.scene.selected = null;
+        };
+    }
+
+    switch (node.kind) {
+        .object => |*obj| toggleObjectVisibility(scene, node, obj),
+        .sdf => |sdf| {
+            node.prev_visible = node.visible;
+            scene.sdfs.items[sdf.shader_id].visible = @intFromBool(node.visible);
+        },
+    }
 }
 
 fn toggleObjectVisibility(scene: *Scene, node: *Node, obj: *Node.Kind.Object) void {
@@ -330,19 +336,18 @@ fn toggleObjectVisibility(scene: *Scene, node: *Node, obj: *Node.Kind.Object) vo
             .sdf => |sdf| {
                 const sdf_node = scene.getNode(sdf.node_id);
                 const shader_id = sdf.shader_id;
-                var meta = &scene.sdf_meta[shader_id];
 
                 if (node.visible == sdf_node.visible) {
                     continue;
                 }
 
-                if (!node.visible) {
-                    meta.visible = scene.sdfs[shader_id].visible;
-                    scene.sdfs[shader_id].visible = false;
-                    sdf_node.visible = false;
+                if (node.visible) {
+                    sdf_node.visible = sdf_node.prev_visible;
+                    scene.sdfs.items[shader_id].visible = @intFromBool(sdf_node.visible);
                 } else {
-                    scene.sdfs[shader_id].visible = meta.visible;
-                    sdf_node.visible = meta.visible;
+                    scene.sdfs.items[shader_id].visible = @intFromBool(false);
+                    sdf_node.prev_visible = sdf_node.visible;
+                    sdf_node.visible = false;
                 }
             },
             .object => |*child_obj| {

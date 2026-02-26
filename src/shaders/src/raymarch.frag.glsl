@@ -121,18 +121,18 @@ float applyOperation(float d1, float d2, uint op, float k) {
 SceneInfo getDist(vec3 p) {
     float result_dist = MAX_DIST;
     uint index = 0;
-    uint obj_id = 0;
 
     if (sdf_count == 0) {
         return SceneInfo(MAX_DIST, 0);
     }
 
-    uint current_obj = objects[0].obj_id;
+    uint current_obj = objects[indices[0]].obj_id;
     float group_dist = MAX_DIST;
     uint group_index = 0;
 
     for (uint i = 0; i < sdf_count; ++i) {
-        SDFObject obj = objects[indices[i]];
+        uint pool_i = indices[i];
+        SDFObject obj = objects[pool_i];
 
         // New object group → finalize previous group with union
         if (obj.obj_id != current_obj) {
@@ -153,7 +153,7 @@ SceneInfo getDist(vec3 p) {
         float prev = group_dist;
         group_dist = applyOperation(d, group_dist, obj.op, obj.smooth_factor);
         if (group_dist < prev) {
-            group_index = i;
+            group_index = pool_i;
         }
     }
 

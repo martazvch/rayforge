@@ -38,7 +38,7 @@ pub const Sdf = extern struct {
     scale: f32,
 
     color: m.Vec3,
-    visible: bool,
+    visible: u32,
     obj_id: u32,
     pad: [3]f32,
 
@@ -131,8 +131,7 @@ pub const Sdf = extern struct {
 
 pub const name_size = 64;
 
+/// Metadata about Sdf that isn't sent to the shader
 pub const Meta = struct {
-    name: [name_size:0]u8,
     rotation: m.Vec3,
-    visible: bool,
 };
