@@ -142,83 +142,8 @@ fn overlay(self: *const Self) void {
 
     const selected_sdf = globals.scene.getSelectedSdf() orelse return;
     drawBoundingBox(drawlist, selected_sdf);
+    self.drawManipulation(drawlist, selected_sdf);
     // drawGuizmo(drawlist, selected_sdf);
-}
-
-fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
-    const axis_len = 2;
-    const selected_color = 0xFF00FFFF;
-    const selection_thresh = 6;
-    globals.event_loop.axis_hovered = null;
-
-    const pos = selected_sdf.getPos();
-    const pos_proj = globals.camera.worldToScreen(pos) orelse return;
-    const start: m.Vec2 = .new(pos_proj[0], pos_proj[1]);
-
-    const axis_px_len: f32 = 100;
-    const arrow_len: f32 = 12;
-    const arrow_half_w: f32 = 5;
-
-    for (
-        [_]m.Vec3{ .unitX, .unitY, .unitZ },
-        [_]u32{ 0xFF0000FF, 0xFF00FF00, 0xFFFF0000 },
-        0..,
-    ) |unit_axis, color, i| {
-        const axis = unit_axis.scale(axis_len);
-        const axis_world = math.mulMat4Vec3(selected_sdf.transform.transpose(), axis).add(pos);
-        const axis_proj = globals.camera.worldToScreen(axis_world) orelse continue;
-
-        const raw = m.Vec2.new(axis_proj[0] - start.x, axis_proj[1] - start.y);
-        const raw_len = raw.length();
-        const len = @min(raw_len, axis_px_len);
-        const d = raw.normalize();
-
-        // Store screen-space info for drag handler
-        globals.event_loop.axis_screen_dir[i] = d;
-        // axis_len world units produced raw_len screen pixels
-        globals.event_loop.axis_world_per_px[i] = if (raw_len > 0.001) axis_len / raw_len else 0;
-        const end = start.add(d.scale(len));
-        const arrow_base = end.sub(d.scale(arrow_len));
-        const p = m.Vec2.new(-d.y, d.x);
-
-        // Selection
-        //  point on segment AB: Q(t) = A + t * AB
-        //  We want to minimize |P - Q(t)|, or equivalently |P - Q(t)|²
-        //  expanding the squared length (dot product with itself): AP·AP - 2t * AP·AB + t² * AB·AB
-        //  which is a parabola, mminimum is where derivative is 0
-        //  -2 * AP·AB + 2t * AB·AB = 0
-        //  t = AP·AB / AB·AB
-        //  dist = |AP - t * AB|
-        const mouse_pos = gui.ImGui_GetMousePos();
-        const ab = end.sub(start);
-        const ap = m.Vec2.new(mouse_pos.x, mouse_pos.y).sub(start);
-        // Clamp between 0 and 1 because formula is for infinite lines, we just want the segment
-        const t = std.math.clamp(ap.dot(ab) / ab.dot(ab), 0, 1);
-        const dist = ap.sub(ab.scale(t)).length();
-
-        const final_color = clr: {
-            if (dist < selection_thresh) {
-                globals.event_loop.axis_hovered = @enumFromInt(i);
-                break :clr selected_color;
-            }
-            break :clr color;
-        };
-
-        gui.ImDrawList_AddLineEx(
-            drawlist,
-            math.zlmVec2ToImGui(start),
-            math.zlmVec2ToImGui(arrow_base),
-            final_color,
-            3,
-        );
-        gui.ImDrawList_AddTriangleFilled(
-            drawlist,
-            math.zlmVec2ToImGui(end),
-            math.zlmVec2ToImGui(arrow_base.sub(p.scale(arrow_half_w))),
-            math.zlmVec2ToImGui(arrow_base.add(p.scale(arrow_half_w))),
-            final_color,
-        );
-    }
 }
 
 fn drawBoundingBox(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
@@ -303,6 +228,131 @@ fn drawBoundingBox(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) v
                 1.5,
             );
         }
+    }
+}
+
+fn drawManipulation(self: *const Self, drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
+    const axis_color: u32 = switch (self.manipulator.axis) {
+        .x, .local_x => 0xFF8888FF,
+        .y, .local_y => 0xFF88FF88,
+        .z, .local_z => 0xFFFF8888,
+        else => return,
+    };
+    const pos = selected_sdf.getPos();
+    const pos_proj = globals.camera.worldToScreen(pos) orelse return;
+
+    switch (self.manipulator.mode) {
+        .normal => return,
+        .grab => {
+
+            // Project a world point 1 unit along the axis to get the screen-space direction
+            const axis_dir = self.manipulator.getAxisDir(selected_sdf);
+            const axis_pt_proj = globals.camera.worldToScreen(pos.add(axis_dir)) orelse return;
+
+            const dx = axis_pt_proj[0] - pos_proj[0];
+            const dy = axis_pt_proj[1] - pos_proj[1];
+            const len = @sqrt(dx * dx + dy * dy);
+            if (len < 0.001) return; // axis aimed straight at/away from camera
+
+            const nx = dx / len;
+            const ny = dy / len;
+            const ext = 9999.0;
+
+            gui.ImDrawList_AddLineEx(
+                drawlist,
+                .{ .x = pos_proj[0] - nx * ext, .y = pos_proj[1] - ny * ext },
+                .{ .x = pos_proj[0] + nx * ext, .y = pos_proj[1] + ny * ext },
+                axis_color,
+                1.5,
+            );
+        },
+        .rotate => {
+            gui.ImDrawList_AddCircleEx(
+                drawlist,
+                @bitCast(pos_proj),
+                100,
+                axis_color,
+                20,
+                1.5,
+            );
+        },
+        .scale => {},
+    }
+}
+
+fn drawGuizmo(drawlist: [*c]gui.ImDrawList, selected_sdf: *const sdf.Sdf) void {
+    const axis_len = 2;
+    const selected_color = 0xFF00FFFF;
+    const selection_thresh = 6;
+    globals.event_loop.axis_hovered = null;
+
+    const pos = selected_sdf.getPos();
+    const pos_proj = globals.camera.worldToScreen(pos) orelse return;
+    const start: m.Vec2 = .new(pos_proj[0], pos_proj[1]);
+
+    const axis_px_len: f32 = 100;
+    const arrow_len: f32 = 12;
+    const arrow_half_w: f32 = 5;
+
+    for (
+        [_]m.Vec3{ .unitX, .unitY, .unitZ },
+        [_]u32{ 0xFF0000FF, 0xFF00FF00, 0xFFFF0000 },
+        0..,
+    ) |unit_axis, color, i| {
+        const axis = unit_axis.scale(axis_len);
+        const axis_world = math.mulMat4Vec3(selected_sdf.transform.transpose(), axis).add(pos);
+        const axis_proj = globals.camera.worldToScreen(axis_world) orelse continue;
+
+        const raw = m.Vec2.new(axis_proj[0] - start.x, axis_proj[1] - start.y);
+        const raw_len = raw.length();
+        const len = @min(raw_len, axis_px_len);
+        const d = raw.normalize();
+
+        // Store screen-space info for drag handler
+        globals.event_loop.axis_screen_dir[i] = d;
+        // axis_len world units produced raw_len screen pixels
+        globals.event_loop.axis_world_per_px[i] = if (raw_len > 0.001) axis_len / raw_len else 0;
+        const end = start.add(d.scale(len));
+        const arrow_base = end.sub(d.scale(arrow_len));
+        const p = m.Vec2.new(-d.y, d.x);
+
+        // Selection
+        //  point on segment AB: Q(t) = A + t * AB
+        //  We want to minimize |P - Q(t)|, or equivalently |P - Q(t)|²
+        //  expanding the squared length (dot product with itself): AP·AP - 2t * AP·AB + t² * AB·AB
+        //  which is a parabola, mminimum is where derivative is 0
+        //  -2 * AP·AB + 2t * AB·AB = 0
+        //  t = AP·AB / AB·AB
+        //  dist = |AP - t * AB|
+        const mouse_pos = gui.ImGui_GetMousePos();
+        const ab = end.sub(start);
+        const ap = m.Vec2.new(mouse_pos.x, mouse_pos.y).sub(start);
+        // Clamp between 0 and 1 because formula is for infinite lines, we just want the segment
+        const t = std.math.clamp(ap.dot(ab) / ab.dot(ab), 0, 1);
+        const dist = ap.sub(ab.scale(t)).length();
+
+        const final_color = clr: {
+            if (dist < selection_thresh) {
+                globals.event_loop.axis_hovered = @enumFromInt(i);
+                break :clr selected_color;
+            }
+            break :clr color;
+        };
+
+        gui.ImDrawList_AddLineEx(
+            drawlist,
+            math.zlmVec2ToImGui(start),
+            math.zlmVec2ToImGui(arrow_base),
+            final_color,
+            3,
+        );
+        gui.ImDrawList_AddTriangleFilled(
+            drawlist,
+            math.zlmVec2ToImGui(end),
+            math.zlmVec2ToImGui(arrow_base.sub(p.scale(arrow_half_w))),
+            math.zlmVec2ToImGui(arrow_base.add(p.scale(arrow_half_w))),
+            final_color,
+        );
     }
 }
 

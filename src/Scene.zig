@@ -79,9 +79,8 @@ pub fn getSelectedSdfMeta(self: *Self) ?*sdf.Meta {
 
 pub fn addObject(self: *Self) void {
     const parent_index = self.getParentObjIndex();
-    std.log.debug("Add Object parent index: {}", .{parent_index.toInt()});
-
     const new_id: Node.Id = .fromInt(self.nodes.items.len);
+
     var new_obj: Node = .{
         .name = @splat(0),
         .kind = .{ .object = .{
@@ -135,8 +134,6 @@ pub fn addSdf(self: *Self, kind: sdf.Kind) void {
         .obj_id = parent_index.toInt(),
         .pad = undefined,
     };
-
-    std.log.debug("Created SDF at index: {}, with obj_id: {}", .{ index, parent_index.toInt() });
 
     new_meta.* = .{
         .rotation = .zero,

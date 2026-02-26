@@ -126,7 +126,7 @@ fn updateGrab(self: *Self, current: m.Vec2) void {
             setPos(s, self.start_pos.add(world_delta));
         },
         else => {
-            const axis_dir = getAxisDir(self.axis, s);
+            const axis_dir = self.getAxisDir(s);
             const p0 = camera.worldToScreen(self.start_pos) orelse return;
             const p1 = camera.worldToScreen(self.start_pos.add(axis_dir)) orelse return;
 
@@ -207,8 +207,8 @@ fn setPos(s: *sdf.Sdf, pos: m.Vec3) void {
     s.transform.fields[3][2] = pos.z;
 }
 
-fn getAxisDir(axis: Axis, s: *const sdf.Sdf) m.Vec3 {
-    return switch (axis) {
+pub fn getAxisDir(self: *const Self, s: *const sdf.Sdf) m.Vec3 {
+    return switch (self.axis) {
         .none => .zero,
         .x => .unitX,
         .y => .unitY,
