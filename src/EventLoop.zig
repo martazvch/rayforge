@@ -13,6 +13,8 @@ viewport_hovered: bool,
 // Cam
 enable_cam: bool,
 
+on_menu: bool,
+
 // Axis
 // enable_drag: ?Axis,
 // axis_hovered: ?Axis,
@@ -40,6 +42,7 @@ pub fn init() Self {
         // .axis_screen_dir = @splat(.zero),
         // .axis_world_per_px = @splat(0),
         .last_mouse = .zero,
+        .on_menu = false,
     };
 }
 
@@ -79,13 +82,12 @@ pub fn process(self: *Self, appstate: ?*anyopaque, event: *sdl.SDL_Event) !sdl.S
             } else if (event.button.button == sdl.SDL_BUTTON_LEFT) {
                 if (manip.isActive()) {
                     manip.confirm();
-                } else if (self.viewport_hovered) {
+                } else if (self.viewport_hovered and !self.on_menu) {
                     // if (self.axis_hovered) |axis| {
                     //     self.enable_drag = axis;
                     // } else {
                     const x = event.motion.x - globals.editor.viewport.rect.pos.x;
                     const y = event.motion.y - globals.editor.viewport.rect.pos.y;
-
                     const ray = globals.camera.screenToRay(x, y);
 
                     if (globals.scene.raymarch(ray.ro, ray.rd)) |hit| {

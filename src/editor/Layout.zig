@@ -71,6 +71,8 @@ pub fn render(self: *Self, viewport: *Viewport) void {
     // Main Menu Bar (keep default spacing for menu items)
     if (gui.ImGui_BeginMainMenuBar()) {
         if (gui.ImGui_BeginMenu("File")) {
+            globals.event_loop.on_menu = true;
+
             if (gui.ImGui_MenuItemEx("New", "Ctrl+N", false, true)) {}
             if (gui.ImGui_MenuItemEx("Open", "Ctrl+O", false, true)) {}
             if (gui.ImGui_MenuItemEx("Save", "Ctrl+S", false, true)) {
@@ -79,7 +81,10 @@ pub fn render(self: *Self, viewport: *Viewport) void {
             gui.ImGui_Separator();
             if (gui.ImGui_MenuItemEx("Exit", "Alt+F4", false, true)) {}
             gui.ImGui_EndMenu();
+        } else {
+            globals.event_loop.on_menu = false;
         }
+
         if (gui.ImGui_BeginMenu("Edit")) {
             if (gui.ImGui_MenuItemEx("Undo", "Ctrl+Z", false, true)) {}
             if (gui.ImGui_MenuItemEx("Redo", "Ctrl+Y", false, true)) {}
