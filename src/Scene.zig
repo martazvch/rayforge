@@ -374,8 +374,11 @@ fn raymarchSdf(self: *Self, sdf_node: Node.Kind.Sdf, p: m.Vec3) RaymarchRes {
 }
 
 pub fn save(self: *Self, path: []const u8) void {
-    var serializer: Serializer = .init();
-    serializer.serialize(path, self);
+    Serializer.serialize(self, path);
+}
+
+pub fn load(self: *Self, path: []const u8) void {
+    Serializer.deserialize(self, path);
 }
 
 pub fn debug(self: *Self) void {
