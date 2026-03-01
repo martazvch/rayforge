@@ -14,23 +14,22 @@ pub var device: *sdl.SDL_GPUDevice = undefined;
 
 pub var pipeline: Pipeline = undefined;
 pub var event_loop: EventLoop = undefined;
-pub var scene: Scene = undefined;
+pub var scene: *Scene = undefined;
 pub var editor: Editor = undefined;
 pub var camera: Camera = undefined;
 
 pub fn init(alloc: Allocator) void {
     allocator = alloc;
     pipeline = .init(alloc);
-    scene = .init(alloc);
-    scene.postInit();
+    // scene = .init(alloc);
+    editor = .init();
+    scene = editor.createScene();
     scene.debug();
     event_loop = .init();
-    editor = .init();
     camera = .init();
 }
 
 pub fn deinit() void {
     editor.deinit();
     pipeline.deinit();
-    scene.deinit();
 }

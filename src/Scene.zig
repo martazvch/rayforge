@@ -14,6 +14,8 @@ const Serializer = @import("Serializer.zig");
 
 arena: std.heap.ArenaAllocator,
 allocator: Allocator,
+name: [max_scene_name:0]u8,
+saved: bool,
 sdfs: ArrayList(Sdf),
 sdf_meta: ArrayList(sdf.Meta),
 /// Sdf indices grouped by object id
@@ -24,11 +26,14 @@ selected: ?Node.Id,
 
 const Self = @This();
 pub const max_obj = 32;
+pub const max_scene_name = 128;
 
 pub fn init(allocator: Allocator) Self {
     return .{
         .arena = .init(allocator),
         .allocator = undefined,
+        .name = "unsaved (*)".* ++ .{0} ** 117,
+        .saved = false,
         .sdfs = .empty,
         .sdf_meta = .empty,
         .sdf_indices = .empty,
@@ -374,6 +379,13 @@ fn raymarchSdf(self: *Self, sdf_node: Node.Kind.Sdf, p: m.Vec3) RaymarchRes {
 }
 
 pub fn save(self: *Self, path: []const u8) void {
+    if (!self.saved) {
+        self.saved = true;
+        var iter = std.mem.splitBackwardsScalar(u8, path, '/');
+        const name = iter.next().?;
+        @memcpy(self.name[0..name.len], name);
+    }
+
     Serializer.serialize(self, path);
 }
 

@@ -80,7 +80,7 @@ fn header() void {
 }
 
 fn sceneTree(self: *Self) void {
-    const scene = &globals.scene;
+    const scene = globals.scene;
 
     const flags = gui.ImGuiTreeNodeFlags_DefaultOpen |
         gui.ImGuiTreeNodeFlags_SpanAvailWidth |

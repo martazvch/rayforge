@@ -13,13 +13,17 @@ const Rect = @import("../Rect.zig");
 const globals = @import("../globals.zig");
 const sdf = @import("../sdf.zig");
 const Manipulator = @import("../Manipulator.zig");
+const Scene = @import("../Scene.zig");
 const fatal = @import("../utils.zig").fatal;
+const oom = @import("../utils.zig").oom;
 
 imio: *gui.ImGuiIO,
 state: State,
 layout: Layout,
 viewport: Viewport,
 manipulator: Manipulator,
+scenes: std.ArrayList(*Scene),
+change_scene: ?*Scene,
 
 const Self = @This();
 
@@ -80,10 +84,17 @@ pub fn init() Self {
         .layout = .init(),
         .viewport = .init(),
         .manipulator = .init(),
+        .scenes = .empty,
+        .change_scene = null,
     };
 }
 
 pub fn deinit(self: *Self) void {
+    for (self.scenes.items) |scene| {
+        scene.deinit();
+        globals.allocator.destroy(scene);
+    }
+    self.scenes.deinit(globals.allocator);
     self.layout.deinit();
     gui.cImGui_ImplSDL3_Shutdown();
     gui.cImGui_ImplSDLGPU3_Shutdown();
@@ -94,6 +105,14 @@ pub fn newFrame(_: *const Self) void {
     gui.cImGui_ImplSDL3_NewFrame();
     gui.cImGui_ImplSDLGPU3_NewFrame();
     gui.ImGui_NewFrame();
+}
+
+pub fn createScene(self: *Self) *Scene {
+    const scene = globals.allocator.create(Scene) catch oom();
+    scene.* = .init(globals.allocator);
+    scene.postInit();
+    self.scenes.append(globals.allocator, scene) catch oom();
+    return scene;
 }
 
 pub fn render(self: *Self) void {
@@ -125,6 +144,12 @@ pub fn render(self: *Self) void {
     // Check if mouse is over viewport region for input handling
     const mouse_pos = gui.ImGui_GetMousePos();
     globals.event_loop.setViewportState(self.viewport.rect.isIn(mouse_pos.x, mouse_pos.y));
+
+    // Changes scene if needed, set by TabBar
+    if (self.change_scene) |new_scene| {
+        globals.scene = new_scene;
+        self.change_scene = null;
+    }
 }
 
 fn overlay(self: *const Self) void {

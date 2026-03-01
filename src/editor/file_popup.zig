@@ -13,7 +13,7 @@ pub const load_id = "LoadPopup";
 
 const filter_patterns = [_][*c]const u8{"*.rfs"};
 
-pub fn open_save() void {
+pub fn openSave() void {
     gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Border, theme.bg_light);
     if (gui.ImGui_BeginPopup(open_id, 0)) {
         const res = tfd.tinyfd_saveFileDialog(
@@ -36,7 +36,7 @@ pub fn open_save() void {
     gui.ImGui_PopStyleColor();
 }
 
-pub fn open_load() void {
+pub fn openLoad() void {
     gui.ImGui_PushStyleColorImVec4(gui.ImGuiCol_Border, theme.bg_light);
     if (gui.ImGui_BeginPopup(load_id, 0)) {
         const res = tfd.tinyfd_openFileDialog(

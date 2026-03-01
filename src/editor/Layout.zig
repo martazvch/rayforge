@@ -20,18 +20,17 @@ const TabBar = @import("TabBar.zig");
 const ToolBar = @import("ToolBar.zig");
 const oom = @import("../utils.zig").oom;
 
-const STATUSBAR_HEIGHT: f32 = 22;
-const DEFAULT_PROPERTIES_WIDTH: f32 = 200;
-const DEFAULT_SCENE_WIDTH: f32 = 200;
-const MIN_PANEL_WIDTH: f32 = 100;
-const MIN_VIEWPORT_WIDTH: f32 = 200;
-const MIN_PANEL_HEIGHT: f32 = 80;
-const SPLITTER_THICKNESS: f32 = 4;
+const statusbar_height: f32 = 22;
+const default_properties_width: f32 = 200;
+const default_scene_width: f32 = 200;
+const min_panel_width: f32 = 100;
+const min_viewport_width: f32 = 200;
+const splitter_thickness: f32 = 4;
 
 var menu_bar_height: f32 = 19;
 
 // Resizable sizes (persisted across frames)
-var total_panel_width: f32 = DEFAULT_PROPERTIES_WIDTH + DEFAULT_SCENE_WIDTH;
+var total_panel_width: f32 = default_properties_width + default_scene_width;
 var properties_ratio: f32 = 0.5; // Properties takes 50% of panel width
 var scene_height_ratio: f32 = 0.7;
 
@@ -52,13 +51,12 @@ const Self = @This();
 
 pub fn init() Self {
     return .{
-        .tabbar = .init(),
+        .tabbar = .{},
         .scene_tree = .init(),
     };
 }
 
 pub fn deinit(self: *Self) void {
-    self.tabbar.deinit();
     self.scene_tree.deinit();
 }
 
@@ -110,19 +108,19 @@ pub fn render(self: *Self, viewport: *Viewport) void {
         gui.ImGui_OpenPopup(FilePopup.open_id, 0);
         open_save_popup = false;
     }
-    FilePopup.open_save();
+    FilePopup.openSave();
 
     if (open_load_popup) {
         gui.ImGui_OpenPopup(FilePopup.load_id, 0);
         open_load_popup = false;
     }
-    FilePopup.open_load();
+    FilePopup.openLoad();
 
     // Calculate layout dimensions
     const viewport_width = work_size.x - total_panel_width;
     const properties_width = total_panel_width * properties_ratio;
     const scene_width = total_panel_width - properties_width;
-    const status_y = work_pos.y + work_size.y - STATUSBAR_HEIGHT;
+    const status_y = work_pos.y + work_size.y - statusbar_height;
     const panel_y = y_offset;
     const panel_height = work_size.y;
     const scene_h = panel_height * scene_height_ratio;
@@ -135,7 +133,7 @@ pub fn render(self: *Self, viewport: *Viewport) void {
     // Status Bar
     {
         gui.ImGui_SetNextWindowPos(.{ .x = work_pos.x, .y = status_y }, gui.ImGuiCond_Always);
-        gui.ImGui_SetNextWindowSize(.{ .x = viewport_width, .y = STATUSBAR_HEIGHT }, gui.ImGuiCond_Always);
+        gui.ImGui_SetNextWindowSize(.{ .x = viewport_width, .y = statusbar_height }, gui.ImGuiCond_Always);
 
         const status_flags = gui.ImGuiWindowFlags_NoTitleBar |
             gui.ImGuiWindowFlags_NoResize |
@@ -229,8 +227,8 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
 
     // === Splitter: Viewport | Properties ===
     const vp_splitter_x = work_pos.x + viewport_width;
-    const vp_splitter_min = gui.ImVec2{ .x = vp_splitter_x - SPLITTER_THICKNESS / 2, .y = panel_y };
-    const vp_splitter_max = gui.ImVec2{ .x = vp_splitter_x + SPLITTER_THICKNESS / 2, .y = panel_y + panel_height };
+    const vp_splitter_min = gui.ImVec2{ .x = vp_splitter_x - splitter_thickness / 2, .y = panel_y };
+    const vp_splitter_max = gui.ImVec2{ .x = vp_splitter_x + splitter_thickness / 2, .y = panel_y + panel_height };
 
     const vp_hovered = mouse_pos.x >= vp_splitter_min.x and mouse_pos.x <= vp_splitter_max.x and
         mouse_pos.y >= vp_splitter_min.y and mouse_pos.y <= vp_splitter_max.y;
@@ -243,7 +241,7 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     if (dragging_viewport_splitter) {
         const new_viewport_width = mouse_pos.x - work_pos.x;
         const new_panel_width = work_size.x - new_viewport_width;
-        if (new_viewport_width >= MIN_VIEWPORT_WIDTH and new_panel_width >= MIN_PANEL_WIDTH * 2) {
+        if (new_viewport_width >= min_viewport_width and new_panel_width >= min_panel_width * 2) {
             total_panel_width = new_panel_width;
         }
         gui.ImGui_SetMouseCursor(gui.ImGuiMouseCursor_ResizeEW);
@@ -253,8 +251,8 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
 
     // === Splitter: Properties | Scene ===
     const ps_splitter_x = work_pos.x + viewport_width + properties_width;
-    const ps_splitter_min = gui.ImVec2{ .x = ps_splitter_x - SPLITTER_THICKNESS / 2, .y = panel_y };
-    const ps_splitter_max = gui.ImVec2{ .x = ps_splitter_x + SPLITTER_THICKNESS / 2, .y = panel_y + panel_height };
+    const ps_splitter_min = gui.ImVec2{ .x = ps_splitter_x - splitter_thickness / 2, .y = panel_y };
+    const ps_splitter_max = gui.ImVec2{ .x = ps_splitter_x + splitter_thickness / 2, .y = panel_y + panel_height };
 
     const ps_hovered = mouse_pos.x >= ps_splitter_min.x and mouse_pos.x <= ps_splitter_max.x and
         mouse_pos.y >= ps_splitter_min.y and mouse_pos.y <= ps_splitter_max.y;
@@ -276,8 +274,8 @@ fn handleSplitters(work_pos: gui.ImVec2, work_size: gui.ImVec2, viewport_width: 
     // === Splitter: Scene | Chunks (horizontal) ===
     const h_splitter_y = panel_y + scene_h;
     const h_splitter_x = work_pos.x + viewport_width + properties_width;
-    const h_splitter_min = gui.ImVec2{ .x = h_splitter_x, .y = h_splitter_y - SPLITTER_THICKNESS / 2 };
-    const h_splitter_max = gui.ImVec2{ .x = h_splitter_x + scene_width, .y = h_splitter_y + SPLITTER_THICKNESS / 2 };
+    const h_splitter_min = gui.ImVec2{ .x = h_splitter_x, .y = h_splitter_y - splitter_thickness / 2 };
+    const h_splitter_max = gui.ImVec2{ .x = h_splitter_x + scene_width, .y = h_splitter_y + splitter_thickness / 2 };
 
     const h_hovered = mouse_pos.x >= h_splitter_min.x and mouse_pos.x <= h_splitter_max.x and
         mouse_pos.y >= h_splitter_min.y and mouse_pos.y <= h_splitter_max.y;
