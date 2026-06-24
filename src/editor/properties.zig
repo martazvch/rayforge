@@ -173,8 +173,7 @@ fn material(sdf: *Sdf.Sdf) void {
             //
         }
 
-        // if (!gui.ImGui_IsItemHovered(0) and gui.ImGui_IsMouseClickedEx(gui.ImGuiMouseButton_Left, false)) {
-        if (!gui.ImGui_IsItemHovered(0)) {
+        if (!gui.ImGui_IsItemHovered(0) and gui.ImGui_IsMouseClickedEx(gui.ImGuiMouseButton_Left, false)) {
             picker_openned = false;
         }
     }

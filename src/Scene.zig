@@ -383,14 +383,15 @@ pub fn save(self: *Self, path: []const u8) void {
         self.saved = true;
         var iter = std.mem.splitBackwardsScalar(u8, path, '/');
         const name = iter.next().?;
+        @memset(self.name[0..], 0);
         @memcpy(self.name[0..name.len], name);
     }
 
-    Serializer.serialize(self, path);
+    Serializer.serialize(globals.io, globals.allocator, self, path);
 }
 
 pub fn load(self: *Self, path: []const u8) void {
-    Serializer.deserialize(self, path);
+    Serializer.deserialize(globals.io, globals.allocator, self, path);
 }
 
 pub fn debug(self: *Self) void {

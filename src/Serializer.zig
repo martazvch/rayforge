@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const Scene = @import("Scene.zig");
 const Node = @import("Node.zig");
@@ -6,6 +7,7 @@ const sdf = @import("sdf.zig");
 const m = @import("math.zig").zlm;
 const Set = @import("set.zig").Set;
 const fatal = @import("utils.zig").fatal;
+const oom = @import("utils.zig").oom;
 
 const SavedObject = struct {
     children: []const u16,
@@ -53,15 +55,15 @@ const SavedScene = struct {
     selected: ?u16,
 };
 
-pub fn serialize(scene: *const Scene, path: []const u8) void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+pub fn serialize(io: Io, allocator: Allocator, scene: *const Scene, path: []const u8) void {
+    var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
-    serializeInner(arena.allocator(), scene, path) catch |e| {
+    serializeInner(io, arena.allocator(), scene, path) catch |e| {
         fatal("Failed to save scene: {}", .{e});
     };
 }
 
-fn serializeInner(allocator: Allocator, scene: *const Scene, path: []const u8) !void {
+fn serializeInner(io: Io, allocator: Allocator, scene: *const Scene, path: []const u8) !void {
     // Build node DTOs
     const saved_nodes = try allocator.alloc(SavedNode, scene.nodes.items.len);
     for (scene.nodes.items, saved_nodes) |*node, *saved| {
@@ -124,31 +126,46 @@ fn serializeInner(allocator: Allocator, scene: *const Scene, path: []const u8) !
         .selected = if (scene.selected) |s| s.toInt() else null,
     };
 
-    const file = try std.fs.cwd().createFile(path, .{});
-    defer file.close();
+    const file = if (!std.mem.endsWith(u8, path, ".rfs")) b: {
+        var buf: []u8 = allocator.alloc(u8, path.len + 4) catch oom();
+        defer allocator.free(buf);
+
+        @memcpy(buf[0..path.len], path);
+        @memcpy(buf[path.len..], ".rfs");
+
+        break :b try Io.Dir.cwd().createFile(io, buf, .{});
+    } else try Io.Dir.cwd().createFile(io, path, .{});
+
+    defer file.close(io);
 
     const stringify = std.json.fmt(saved_scene, .{ .whitespace = .indent_4 });
 
     var buf: [10_000]u8 = undefined;
-    var w = file.writer(&buf);
+    var w = file.writer(io, &buf);
     const ww = &w.interface;
     try stringify.format(ww);
-    try file.writeAll(ww.buffered());
+    try ww.writeAll(ww.buffered());
+    // try file.writeAll(ww.buffered());
 }
 
-pub fn deserialize(scene: *Scene, path: []const u8) void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+pub fn deserialize(io: Io, allocator: Allocator, scene: *Scene, path: []const u8) void {
+    var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
-    deserializeInner(arena.allocator(), scene, path) catch |e| {
+    deserializeInner(io, arena.allocator(), scene, path) catch |e| {
         fatal("Failed to load scene: {}", .{e});
     };
 }
 
-fn deserializeInner(allocator: Allocator, scene: *Scene, path: []const u8) !void {
-    const file = try std.fs.cwd().openFile(path, .{});
-    defer file.close();
+fn deserializeInner(io: Io, allocator: Allocator, scene: *Scene, path: []const u8) !void {
+    const file = try Io.Dir.cwd().openFile(io, path, .{});
+    defer file.close(io);
 
-    const content = try file.readToEndAlloc(allocator, 10 * 1024 * 1024);
+    var buf: [1024]u8 = undefined;
+
+    var reader = file.reader(io, &buf);
+    const interface = &reader.interface;
+
+    const content = try interface.readAlloc(allocator, 10 * 1024 * 1024);
     const parsed = try std.json.parseFromSlice(SavedScene, allocator, content, .{});
     defer parsed.deinit();
     const saved = parsed.value;

@@ -5,19 +5,19 @@
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .sdl = .{
-            .url = "git+https://github.com/castholm/SDL.git#887fa805e40d5c7bb3955ae69b89ed566c6a0471",
-            .hash = "sdl-0.4.0+3.4.0-SDL--rq2owEZsySGuHCuVJ9naEvH3i3e_pyUIjziBtJ-",
+            .url = "https://github.com/castholm/SDL/archive/refs/tags/v0.5.0+3.4.8.tar.gz",
+            .hash = "sdl-0.5.0+3.4.8-SDL--k4DpgH323IfF6cEaGzKUdtUQv1azbBmmcv0RMAu",
         },
         .zlm = .{
-            .url = "git+https://github.com/ziglibs/zlm.git#35ab7df57cfb5392a11486f6e4b03a82f849a118",
+            .url = "https://github.com/ziglibs/zlm.git#35ab7df57cfb5392a11486f6e4b03a82f849a118",
             .hash = "zlm-0.1.0-LoZ6yDawAADMopilIe9MDzer0UqmruCy_PuhNv4OMc7c",
         },
         .zimgui = .{
-            .url = "git+https://github.com/martazvch/zimgui#7c6dc2dc454e8a9da2631781d60f9d740652312a",
-            .hash = "zimgui-0.0.0-AmMy4QLmUgBS5_AqhStO84Eupk7owLkvvEw9qju3sm5b",
+            .url = "git+https://github.com/martazvch/zimgui#2e3abfae66609202081ed6b3310a36fb6350520d",
+            .hash = "zimgui-0.0.0-AmMy4QPmUgD7yI5SIRBtB1I6UrLnf4KYLGZtPCG6mG4e",
         },
         .zstbi = .{
-            .url = "git+https://github.com/martazvch/zstbi#51d1948d333931ba56ebe28152a3930cc0d74fd3",
+            .url = "https://github.com/martazvch/zstbi#51d1948d333931ba56ebe28152a3930cc0d74fd3",
             .hash = "zstbi-0.0.0-L9HIPXdWBAAQEt7e_M_-gMyaK9hkx-qTRuvA-UmXAGlO",
         },
     },

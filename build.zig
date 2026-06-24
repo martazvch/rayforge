@@ -2,6 +2,10 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
+    const options = b.addOptions();
+    const debug_scene = b.option(bool, "debug_scene", "opens the debug scene") orelse false;
+    options.addOption(bool, "debug_scene", debug_scene);
+
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -70,6 +74,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("c", c);
     exe.root_module.addIncludePath(b.path("vendor"));
 
+    exe.root_module.addOptions("options", options);
     b.installArtifact(exe);
 
     const run_step = b.step("run", "Run the app");

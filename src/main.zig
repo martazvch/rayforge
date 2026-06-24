@@ -11,7 +11,11 @@ var app: App = undefined;
 var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
 var is_debug: bool = false;
 
-pub fn main() !u8 {
+var juicy_main: std.process.Init = undefined;
+
+pub fn main(init: std.process.Init) !u8 {
+    juicy_main = init;
+
     app_err.reset();
     var empty_argv: [0:null]?[*:0]u8 = .{};
     const status: u8 = @truncate(@as(c_uint, @bitCast(sdl.SDL_RunApp(empty_argv.len, @ptrCast(&empty_argv), sdlMainC, null))));
@@ -33,7 +37,7 @@ fn sdlAppInit(appstate: ?*?*anyopaque, argv: [][*:0]u8) !sdl.SDL_AppResult {
         };
     };
     is_debug = dbg;
-    App.init(allocator);
+    App.init(juicy_main.io, allocator);
 
     // if (builtin.mode != .Debug and builtin.os.tag == .macos) {
     //     _ = std.posix.setenv("MTL_DEBUG_LAYER", "0", true);
